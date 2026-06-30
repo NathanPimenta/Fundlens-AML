@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router';
-import { AlertTriangle, TrendingUp, Clock, ExternalLink, ChevronRight, Loader2 } from 'lucide-react';
+import { AlertTriangle, TrendingUp, Clock, ExternalLink, ChevronRight, Loader2, Play, Pause, RotateCcw } from 'lucide-react';
 import GraphNode from '../components/GraphNode';
 import FlowArrow from '../components/FlowArrow';
 import NodeTooltip from '../components/NodeTooltip';
@@ -21,6 +21,9 @@ export default function InvestigationDashboard() {
   const [hoveredNode, setHoveredNode] = useState<string | null>(null);
   const [tooltipPosition, setTooltipPosition] = useState({ x: 0, y: 0 });
 
+  const [playbackStep, setPlaybackStep] = useState<number>(-1);
+  const [isPlaying, setIsPlaying] = useState<boolean>(false);
+
   // Fetch alerts from API
   const { alerts, loading: alertsLoading } = useAlerts();
   // Select the first alert automatically once alerts are loaded
@@ -39,6 +42,33 @@ export default function InvestigationDashboard() {
     () => subgraphToLayout(detail?.subgraph, detail?.typology, 'dashboard'),
     [detail],
   );
+
+  useEffect(() => {
+    let timer: any;
+    if (isPlaying) {
+      if (playbackStep >= arrows.length - 1) {
+        setPlaybackStep(0);
+      }
+      timer = setInterval(() => {
+        setPlaybackStep((prev) => {
+          if (prev >= arrows.length - 1) {
+            setIsPlaying(false);
+            clearInterval(timer);
+            return prev;
+          }
+          return prev + 1;
+        });
+      }, 1000);
+    }
+    return () => {
+      if (timer) clearInterval(timer);
+    };
+  }, [isPlaying, arrows.length, playbackStep]);
+
+  useEffect(() => {
+    setPlaybackStep(-1);
+    setIsPlaying(false);
+  }, [selectedAlert]);
 
   // Get the currently selected case data
   const selectedCase = useMemo(() => {
@@ -230,9 +260,16 @@ export default function InvestigationDashboard() {
               </filter>
             </defs>
 
-            {arrows.map((arrow) => (
-              <FlowArrow key={arrow.id} {...arrow} />
-            ))}
+            {arrows.map((arrow, idx) => {
+              const isFuture = playbackStep !== -1 && idx > playbackStep;
+              return (
+                <FlowArrow
+                  key={arrow.id}
+                  {...arrow}
+                  opacity={isFuture ? 0.05 : undefined}
+                />
+              );
+            })}
 
             {nodes.map((node) => (
               <GraphNode
@@ -263,6 +300,35 @@ export default function InvestigationDashboard() {
                 <div className="w-1.5 h-1.5 rounded-full bg-white" />
                 CRITICAL
               </div>
+            </div>
+          )}
+
+          {/* Bottom-Center: Temporal Playback Controls */}
+          {arrows.length > 0 && (
+            <div className="absolute bottom-6 left-1/2 -translate-x-1/2 bg-white border border-gray-200 shadow-md rounded-full px-4 py-2 flex items-center gap-3 z-20">
+              <button
+                type="button"
+                onClick={() => setIsPlaying(!isPlaying)}
+                className="w-8 h-8 rounded-full bg-[#E31E24] text-white flex items-center justify-center hover:bg-[#E31E24]/90 transition-colors"
+                title={isPlaying ? "Pause Timeline" : "Play Timeline Playback"}
+              >
+                {isPlaying ? <Pause className="w-4.5 h-4.5" /> : <Play className="w-4 h-4 translate-x-[1px]" />}
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setPlaybackStep(-1);
+                  setIsPlaying(false);
+                }}
+                className="w-8 h-8 rounded-full border border-gray-200 text-gray-600 flex items-center justify-center hover:bg-gray-50 transition-colors"
+                title="Reset Timeline"
+              >
+                <RotateCcw className="w-4 h-4" />
+              </button>
+              <div className="h-4 w-[1px] bg-gray-200" />
+              <span className="text-[11px] text-gray-700 font-bold" style={{ fontFamily: 'DM Mono' }}>
+                {playbackStep === -1 ? `Full Flow (${arrows.length} steps)` : `Step ${playbackStep + 1} / ${arrows.length}`}
+              </span>
             </div>
           )}
 

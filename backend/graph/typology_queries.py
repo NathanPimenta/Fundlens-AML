@@ -269,19 +269,3 @@ def detect_all_patterns(session) -> Dict[str, List[Dict]]:
         "fan_out_fan_in": detect_fan_out_fan_in(session),
         "mule_chain": detect_mule_chain(session),
     }
-    RETURN source.account_id AS source, target.account_id AS target, intermediary_count, intermediaries
-    """
-    return execute_query(session, query, source_account=source_account)
-
-def detect_mule_chain(session, chain_length: int = 5):
-    """
-    Detects money moving linearly A -> B -> C -> D -> E within a short timeframe.
-    """
-    query = """
-    MATCH p = (start:Account)-[r:TRANSFERRED_TO*5..5]->(end:Account)
-    WHERE all(idx in range(0, size(r)-2) WHERE r[idx].timestamp <= r[idx+1].timestamp)
-      AND start <> end
-    RETURN [n in nodes(p) | n.account_id] AS chain, reduce(s = 0, edge in r | s + edge.amount) AS total_amount
-    LIMIT 50
-    """
-    return execute_query(session, query)

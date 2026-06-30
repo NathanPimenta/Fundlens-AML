@@ -35,6 +35,45 @@ def _row_to_dict(row) -> dict:
     return {k: row[k] for k in row.keys()}
 
 
+def _query_db(sql_pg: str, sql_lite: str, params: tuple = ()) -> list[dict]:
+    if get_dict_db is not None:
+        try:
+            with get_dict_db() as conn:
+                with conn.cursor() as cur:
+                    cur.execute(sql_pg, params)
+                    return [dict(r) for r in cur.fetchall()]
+        except Exception:
+            pass
+
+    if DEMO_DB_PATH.exists():
+        with _sqlite_conn() as con:
+            cur = con.execute(sql_lite, params)
+            return [_row_to_dict(r) for r in cur.fetchall()]
+    return []
+
+
+def _execute_db(sql_pg: str, sql_lite: str, params: tuple = ()) -> bool:
+    if get_dict_db is not None:
+        try:
+            with get_dict_db() as conn:
+                with conn.cursor() as cur:
+                    cur.execute(sql_pg, params)
+                conn.commit()
+                return True
+        except Exception:
+            pass
+
+    if DEMO_DB_PATH.exists():
+        try:
+            with _sqlite_conn() as con:
+                con.execute(sql_lite, params)
+                con.commit()
+                return True
+        except Exception:
+            pass
+    return False
+
+
 def _fetch_case_rows_sqlite(case_id: str) -> tuple[Optional[dict], list[dict], list[dict]]:
     """Load case from fundlens_demo.db (CASE-2847 / 2848 / 2849 from demo_seed.py --mode local)."""
     if not DEMO_DB_PATH.exists():
@@ -293,31 +332,115 @@ def _upsert_account_action(cur, account_id: str, *, watchlist: Optional[bool] = 
 
 
 def set_account_watchlist(account_id: str, enabled: bool = True) -> Optional[dict]:
-    if not get_dict_db:
+    from datetime import datetime
+
+    accs = _query_db(
+        "SELECT account_id FROM accounts WHERE account_id = %s",
+        "SELECT account_id FROM accounts WHERE account_id = ?",
+        (account_id,)
+    )
+    if not accs:
         return None
 
-    with get_dict_db() as conn:
-        with conn.cursor() as cur:
-            cur.execute("SELECT account_id FROM accounts WHERE account_id = %s", (account_id,))
-            if not cur.fetchone():
-                return None
-            result = _upsert_account_action(cur, account_id, watchlist=enabled)
-            conn.commit()
-            return result
+    # Ensure actions table
+    _execute_db(
+        """
+        CREATE TABLE IF NOT EXISTS account_actions (
+            account_id TEXT PRIMARY KEY,
+            on_watchlist BOOLEAN DEFAULT FALSE,
+            enhanced_monitoring BOOLEAN DEFAULT FALSE,
+            updated_at TEXT
+        )
+        """,
+        """
+        CREATE TABLE IF NOT EXISTS account_actions (
+            account_id TEXT PRIMARY KEY,
+            on_watchlist INTEGER DEFAULT 0,
+            enhanced_monitoring INTEGER DEFAULT 0,
+            updated_at TEXT
+        )
+        """
+    )
+
+    rows = _query_db(
+        "SELECT * FROM account_actions WHERE account_id = %s",
+        "SELECT * FROM account_actions WHERE account_id = ?",
+        (account_id,)
+    )
+    row = rows[0] if rows else None
+    wl = 1 if enabled else 0
+    em = int(row["enhanced_monitoring"]) if row else 0
+    now = datetime.utcnow().isoformat()
+
+    if row:
+        _execute_db(
+            "UPDATE account_actions SET on_watchlist = %s, updated_at = %s WHERE account_id = %s",
+            "UPDATE account_actions SET on_watchlist = ?, updated_at = ? WHERE account_id = ?",
+            (wl, now, account_id)
+        )
+    else:
+        _execute_db(
+            "INSERT INTO account_actions (account_id, on_watchlist, enhanced_monitoring, updated_at) VALUES (%s, %s, %s, %s)",
+            "INSERT INTO account_actions (account_id, on_watchlist, enhanced_monitoring, updated_at) VALUES (?, ?, ?, ?)",
+            (account_id, wl, em, now)
+        )
+    return {"on_watchlist": bool(wl), "enhanced_monitoring": bool(em)}
 
 
 def set_account_enhanced_monitoring(account_id: str, enabled: bool = True) -> Optional[dict]:
-    if not get_dict_db:
+    from datetime import datetime
+
+    accs = _query_db(
+        "SELECT account_id FROM accounts WHERE account_id = %s",
+        "SELECT account_id FROM accounts WHERE account_id = ?",
+        (account_id,)
+    )
+    if not accs:
         return None
 
-    with get_dict_db() as conn:
-        with conn.cursor() as cur:
-            cur.execute("SELECT account_id FROM accounts WHERE account_id = %s", (account_id,))
-            if not cur.fetchone():
-                return None
-            result = _upsert_account_action(cur, account_id, enhanced=enabled)
-            conn.commit()
-            return result
+    # Ensure actions table
+    _execute_db(
+        """
+        CREATE TABLE IF NOT EXISTS account_actions (
+            account_id TEXT PRIMARY KEY,
+            on_watchlist BOOLEAN DEFAULT FALSE,
+            enhanced_monitoring BOOLEAN DEFAULT FALSE,
+            updated_at TEXT
+        )
+        """,
+        """
+        CREATE TABLE IF NOT EXISTS account_actions (
+            account_id TEXT PRIMARY KEY,
+            on_watchlist INTEGER DEFAULT 0,
+            enhanced_monitoring INTEGER DEFAULT 0,
+            updated_at TEXT
+        )
+        """
+    )
+
+    rows = _query_db(
+        "SELECT * FROM account_actions WHERE account_id = %s",
+        "SELECT * FROM account_actions WHERE account_id = ?",
+        (account_id,)
+    )
+    row = rows[0] if rows else None
+    wl = int(row["on_watchlist"]) if row else 0
+    em = 1 if enabled else 0
+    now = datetime.utcnow().isoformat()
+
+    if row:
+        _execute_db(
+            "UPDATE account_actions SET enhanced_monitoring = %s, updated_at = %s WHERE account_id = %s",
+            "UPDATE account_actions SET enhanced_monitoring = ?, updated_at = ? WHERE account_id = ?",
+            (em, now, account_id)
+        )
+    else:
+        _execute_db(
+            "INSERT INTO account_actions (account_id, on_watchlist, enhanced_monitoring, updated_at) VALUES (%s, %s, %s, %s)",
+            "INSERT INTO account_actions (account_id, on_watchlist, enhanced_monitoring, updated_at) VALUES (?, ?, ?, ?)",
+            (account_id, wl, em, now)
+        )
+    return {"on_watchlist": bool(wl), "enhanced_monitoring": bool(em)}
 
 
 def _peer_comparison(
@@ -347,35 +470,70 @@ def _peer_comparison(
 
 
 def get_entity(account_id: str) -> Optional[dict]:
-    if not get_dict_db:
+    accounts = _query_db(
+        "SELECT * FROM accounts WHERE account_id = %s",
+        "SELECT * FROM accounts WHERE account_id = ?",
+        (account_id,)
+    )
+    if not accounts:
         return None
+    account = accounts[0]
 
-    with get_dict_db() as conn:
-        with conn.cursor() as cur:
-            cur.execute("SELECT * FROM accounts WHERE account_id = %s", (account_id,))
-            account = cur.fetchone()
-            if not account:
-                return None
+    txns = _query_db(
+        """
+        SELECT * FROM transactions
+        WHERE sender = %s OR receiver = %s
+        ORDER BY timestamp DESC
+        LIMIT 100
+        """,
+        """
+        SELECT * FROM transactions
+        WHERE sender = ? OR receiver = ?
+        ORDER BY timestamp DESC
+        LIMIT 100
+        """,
+        (account_id, account_id)
+    )
 
-            cur.execute(
-                """
-                SELECT * FROM transactions
-                WHERE sender = %s OR receiver = %s
-                ORDER BY timestamp DESC
-                LIMIT 100
-                """,
-                (account_id, account_id),
-            )
-            txns = cur.fetchall()
+    total_txn_rows = _query_db(
+        "SELECT COUNT(*) AS cnt FROM transactions WHERE sender = %s OR receiver = %s",
+        "SELECT COUNT(*) AS cnt FROM transactions WHERE sender = ? OR receiver = ?",
+        (account_id, account_id)
+    )
+    total_txn_count = int(total_txn_rows[0]["cnt"] if total_txn_rows else 0)
 
-            cur.execute(
-                "SELECT COUNT(*) AS cnt FROM transactions WHERE sender = %s OR receiver = %s",
-                (account_id, account_id),
-            )
-            total_txn_row = cur.fetchone()
-            total_txn_count = int(total_txn_row["cnt"] if total_txn_row else 0)
+    # Ensure actions table
+    _execute_db(
+        """
+        CREATE TABLE IF NOT EXISTS account_actions (
+            account_id TEXT PRIMARY KEY,
+            on_watchlist BOOLEAN DEFAULT FALSE,
+            enhanced_monitoring BOOLEAN DEFAULT FALSE,
+            updated_at TEXT
+        )
+        """,
+        """
+        CREATE TABLE IF NOT EXISTS account_actions (
+            account_id TEXT PRIMARY KEY,
+            on_watchlist INTEGER DEFAULT 0,
+            enhanced_monitoring INTEGER DEFAULT 0,
+            updated_at TEXT
+        )
+        """
+    )
 
-            actions = _account_actions(cur, account_id)
+    action_rows = _query_db(
+        "SELECT * FROM account_actions WHERE account_id = %s",
+        "SELECT * FROM account_actions WHERE account_id = ?",
+        (account_id,)
+    )
+    if action_rows:
+        actions = {
+            "on_watchlist": bool(action_rows[0].get("on_watchlist")),
+            "enhanced_monitoring": bool(action_rows[0].get("enhanced_monitoring")),
+        }
+    else:
+        actions = {"on_watchlist": False, "enhanced_monitoring": False}
 
     for key in list(account.keys()):
         if account[key] is not None and key in (
@@ -432,14 +590,14 @@ def get_entity(account_id: str) -> Optional[dict]:
     related: list[dict] = []
     if counterparty_ids:
         cp_list = [c for c in counterparty_ids if c and c != "EXTERNAL"][:12]
-        placeholders = ",".join(["%s"] * len(cp_list))
-        with get_dict_db() as conn:
-            with conn.cursor() as cur:
-                cur.execute(
-                    f"SELECT account_id, risk_level, owner_name FROM accounts WHERE account_id IN ({placeholders})",
-                    tuple(cp_list),
-                )
-                cp_accounts = {r["account_id"]: r for r in cur.fetchall()}
+        placeholders_pg = ",".join(["%s"] * len(cp_list))
+        placeholders_lite = ",".join(["?"] * len(cp_list))
+        cp_rows = _query_db(
+            f"SELECT account_id, risk_level, owner_name FROM accounts WHERE account_id IN ({placeholders_pg})",
+            f"SELECT account_id, risk_level, owner_name FROM accounts WHERE account_id IN ({placeholders_lite})",
+            tuple(cp_list)
+        )
+        cp_accounts = {r["account_id"]: r for r in cp_rows}
 
         for cp_id in cp_list:
             cp_acc = cp_accounts.get(cp_id, {})
@@ -457,21 +615,20 @@ def get_entity(account_id: str) -> Optional[dict]:
     primary_case_id = None
     if case_ids:
         primary_case_id = max(case_ids.items(), key=lambda x: x[1])[0]
-        with get_dict_db() as conn:
-            with conn.cursor() as cur:
-                for cid in sorted(case_ids.keys(), key=lambda c: case_ids[c], reverse=True)[:5]:
-                    cur.execute(
-                        "SELECT case_id, typology, status, created_at FROM cases WHERE case_id = %s",
-                        (cid,),
-                    )
-                    case_row = cur.fetchone()
-                    if case_row:
-                        investigation_history.append({
-                            "case_id": case_row["case_id"],
-                            "typology": case_row.get("typology") or "",
-                            "status": case_row.get("status") or "active",
-                            "created_at": _iso_datetime(case_row.get("created_at")),
-                        })
+        for cid in sorted(case_ids.keys(), key=lambda c: case_ids[c], reverse=True)[:5]:
+            case_rows = _query_db(
+                "SELECT case_id, typology, status, created_at FROM cases WHERE case_id = %s",
+                "SELECT case_id, typology, status, created_at FROM cases WHERE case_id = ?",
+                (cid,)
+            )
+            if case_rows:
+                case_row = case_rows[0]
+                investigation_history.append({
+                    "case_id": case_row["case_id"],
+                    "typology": case_row.get("typology") or "",
+                    "status": case_row.get("status") or "active",
+                    "created_at": _iso_datetime(case_row.get("created_at")),
+                })
 
     risk_level = (account.get("risk_level") or "medium").lower()
     watch_flags = []
@@ -509,8 +666,8 @@ def get_entity(account_id: str) -> Optional[dict]:
             "current_month_volume": round(current_volume, 2),
             "baseline_deviation": deviation_str,
             "counterparties_30d": len(counterparty_ids),
-            "inbound_ratio": round(inbound / total_flow, 3),
-            "outbound_ratio": round(outbound / total_flow, 3),
+            "inbound_ratio": round(inbound / total_flow, 3) if total_flow else 0.0,
+            "outbound_ratio": round(outbound / total_flow, 3) if total_flow else 0.0,
         },
         "network": network,
         "related_entities": related[:6],
@@ -802,18 +959,14 @@ def get_analytics() -> dict:
     }
 
 def list_cases() -> list[dict]:
-    with get_dict_db() as conn:
-        with conn.cursor() as cur:
-            cur.execute("SELECT * FROM cases")
-            cases = cur.fetchall()
-            
+    cases = _query_db("SELECT * FROM cases", "SELECT * FROM cases")
     for c in cases:
-        for key in c:
+        for key in list(c.keys()):
             if isinstance(c[key], float) or "amount" in key or "score" in key:
                 if c[key] is not None:
                     c[key] = float(c[key])
-        c["created_at"] = c["created_at"].isoformat() if c["created_at"] else None
-            
+        c["created_at"] = c["created_at"].isoformat() if c["created_at"] and hasattr(c["created_at"], "isoformat") else str(c.get("created_at") or "")
+
     return cases
 
 def update_alert_status(case_id: str, status: str, investigator_id: str, notes: str = "") -> bool:

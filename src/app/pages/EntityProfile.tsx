@@ -185,6 +185,16 @@ export default function EntityProfile() {
                   Dormant account
                 </span>
               )}
+              {entity.is_dormant && entity.metrics.current_month_volume > 500000 && (
+                <span className="px-2 py-1 bg-[#EF4444] text-white rounded text-xs font-semibold animate-pulse">
+                  Dormant Reactivation Warning
+                </span>
+              )}
+              {entity.declared_income > 0 && entity.metrics.current_month_volume > entity.declared_income * 3 && (
+                <span className="px-2 py-1 bg-[#EF4444] text-white rounded text-xs font-semibold animate-pulse">
+                  Income Profile Mismatch ({entity.metrics.baseline_deviation} excess)
+                </span>
+              )}
               <span className="px-2 py-1 bg-[#3B82F6] text-white rounded text-xs font-semibold">
                 KYC Tier {entity.kyc_tier}
               </span>

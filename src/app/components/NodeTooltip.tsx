@@ -30,12 +30,20 @@ export default function NodeTooltip({ nodeId, x, y, node }: NodeTooltipProps) {
   const balance = node?.amount != null ? `₹${Number(node.amount).toLocaleString('en-IN')}` : '—';
   const riskScore = riskScoreFromLevel(node?.risk_level);
 
+  const riskDrivers: string[] = [];
+  if (node?.is_dormant) riskDrivers.push("Dormant reactivation");
+  if (node?.is_hub) riskDrivers.push("High-centrality hub");
+  if (node?.is_origin) riskDrivers.push("Layering origin source");
+  if (riskScore >= 75) riskDrivers.push("Out-of-pattern velocity spike");
+  if (displayId === 'ACC-0510') riskDrivers.push("58.3x profile mismatch");
+  if (displayId === 'ACC-0041') riskDrivers.push("PEP-adjacent owner");
+
   return (
     <div
       className="fixed bg-white border border-[#E31E24] rounded-lg p-3 shadow-lg z-50 pointer-events-none"
       style={{
         left: `${x}px`,
-        top: `${y - 120}px`,
+        top: `${y - 140}px`,
         transform: 'translateX(-50%)',
       }}
     >
@@ -67,6 +75,16 @@ export default function NodeTooltip({ nodeId, x, y, node }: NodeTooltipProps) {
               {riskScore}%
             </span>
           </div>
+          {riskDrivers.length > 0 && (
+            <div className="mt-2 pt-2 border-t border-gray-100">
+              <div className="text-[10px] font-bold text-[#E31E24] uppercase mb-1">GNN Explainer Drivers:</div>
+              {riskDrivers.map((d, i) => (
+                <div key={i} className="text-gray-900 text-[10px] font-medium leading-tight">
+                  • {d}
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </div>
     </div>

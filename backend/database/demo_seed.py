@@ -564,6 +564,399 @@ def build_case_2849() -> tuple[list[Account], list[Transaction]]:
     return accounts, txns
 
 
+def build_case_2850() -> tuple[list[Account], list[Transaction]]:
+    """
+    CASE-2850 — Dormant Account Activation
+    A savings account dormant for 32 months suddenly activated with a ₹50L inward transfer.
+    Split and layered to 4 intermediate accounts within 1h, then consolidated.
+    """
+    accounts = [
+        Account(
+            account_id="ACC-0500",
+            account_type="savings",
+            status="flagged",
+            kyc_tier=2,
+            created_date="2020-05-12",
+            last_active_date="2023-07-22",   # 32 months dormant
+            declared_income=350000,
+            home_branch="SB-Branch Delhi Main",
+            is_dormant=True,
+            is_pep_adjacent=True,
+            owner_name="Rita Sen",
+            owner_type="individual",
+            risk_level="high",
+            notes="Dormant 32 months. PEP adjacent. Sudden high-value activation.",
+        ),
+        Account(
+            account_id="ACC-0501",
+            account_type="savings",
+            status="active",
+            kyc_tier=2,
+            created_date="2022-04-18",
+            last_active_date="2026-03-22",
+            declared_income=450000,
+            home_branch="SB-Branch Delhi West",
+            is_dormant=False,
+            is_pep_adjacent=False,
+            owner_name="Suresh Gupta",
+            owner_type="individual",
+            risk_level="medium",
+            notes="Layering intermediary. Received ₹12L from ACC-0500.",
+        ),
+        Account(
+            account_id="ACC-0502",
+            account_type="savings",
+            status="active",
+            kyc_tier=2,
+            created_date="2021-11-05",
+            last_active_date="2026-03-22",
+            declared_income=600000,
+            home_branch="SB-Branch Delhi East",
+            is_dormant=False,
+            is_pep_adjacent=False,
+            owner_name="Aisha Khan",
+            owner_type="individual",
+            risk_level="medium",
+            notes="Layering intermediary. Received ₹13L from ACC-0500.",
+        ),
+        Account(
+            account_id="ACC-0503",
+            account_type="current",
+            status="active",
+            kyc_tier=1,
+            created_date="2023-01-22",
+            last_active_date="2026-03-22",
+            declared_income=0,
+            home_branch="CB-Branch Nariman Point",
+            is_dormant=False,
+            is_pep_adjacent=False,
+            owner_name="Zenith Exporters",
+            owner_type="entity",
+            risk_level="high",
+            notes="Layering intermediary (entity). Received ₹15L from ACC-0500.",
+        ),
+        Account(
+            account_id="ACC-0504",
+            account_type="savings",
+            status="active",
+            kyc_tier=2,
+            created_date="2022-09-10",
+            last_active_date="2026-03-22",
+            declared_income=500000,
+            home_branch="SB-Branch Mumbai Central",
+            is_dormant=False,
+            is_pep_adjacent=False,
+            owner_name="Vikram Malhotra",
+            owner_type="individual",
+            risk_level="medium",
+            notes="Layering intermediary. Received ₹10L from ACC-0500.",
+        ),
+        Account(
+            account_id="ACC-0505",
+            account_type="current",
+            status="flagged",
+            kyc_tier=1,
+            created_date="2024-02-15",
+            last_active_date="2026-03-22",
+            declared_income=0,
+            home_branch="CB-Branch Bandra East",
+            is_dormant=False,
+            is_pep_adjacent=False,
+            owner_name="Vanguard Trading LLP",
+            owner_type="entity",
+            risk_level="critical",
+            notes="Consolidation hub. Received layered transfers from Suresh, Aisha, Zenith, and Vikram.",
+        ),
+    ]
+
+    txns = [
+        # Inward high-value activation
+        Transaction(
+            transaction_id="TXN-2850-001",
+            sender="EXTERNAL",
+            receiver="ACC-0500",
+            amount=5000000,
+            timestamp="09:30:00",
+            channel="RTGS",
+            reference_number="RTGS20260322501",
+            is_fraud=True,
+            typology="dormant_activation",
+            case_id="CASE-2850",
+        ),
+        # Immediate layered outflows
+        Transaction(
+            transaction_id="TXN-2850-002",
+            sender="ACC-0500",
+            receiver="ACC-0501",
+            amount=1200000,
+            timestamp="09:45:00",
+            channel="NEFT",
+            reference_number="NEFT20260322502",
+            is_fraud=True,
+            typology="dormant_activation",
+            case_id="CASE-2850",
+        ),
+        Transaction(
+            transaction_id="TXN-2850-003",
+            sender="ACC-0500",
+            receiver="ACC-0502",
+            amount=1300000,
+            timestamp="10:00:00",
+            channel="IMPS",
+            reference_number="IMPS20260322503",
+            is_fraud=True,
+            typology="dormant_activation",
+            case_id="CASE-2850",
+        ),
+        Transaction(
+            transaction_id="TXN-2850-004",
+            sender="ACC-0500",
+            receiver="ACC-0503",
+            amount=1500000,
+            timestamp="10:15:00",
+            channel="RTGS",
+            reference_number="RTGS20260322504",
+            is_fraud=True,
+            typology="dormant_activation",
+            case_id="CASE-2850",
+        ),
+        Transaction(
+            transaction_id="TXN-2850-005",
+            sender="ACC-0500",
+            receiver="ACC-0504",
+            amount=1000000,
+            timestamp="10:30:00",
+            channel="UPI",
+            reference_number="UPI20260322505",
+            is_fraud=True,
+            typology="dormant_activation",
+            case_id="CASE-2850",
+        ),
+        # Consolidation flows
+        Transaction(
+            transaction_id="TXN-2850-006",
+            sender="ACC-0501",
+            receiver="ACC-0505",
+            amount=1190000,
+            timestamp="11:15:00",
+            channel="NEFT",
+            reference_number="NEFT20260322506",
+            is_fraud=True,
+            typology="dormant_activation",
+            case_id="CASE-2850",
+        ),
+        Transaction(
+            transaction_id="TXN-2850-007",
+            sender="ACC-0502",
+            receiver="ACC-0505",
+            amount=1290000,
+            timestamp="11:30:00",
+            channel="IMPS",
+            reference_number="IMPS20260322507",
+            is_fraud=True,
+            typology="dormant_activation",
+            case_id="CASE-2850",
+        ),
+        Transaction(
+            transaction_id="TXN-2850-008",
+            sender="ACC-0503",
+            receiver="ACC-0505",
+            amount=1490000,
+            timestamp="12:00:00",
+            channel="RTGS",
+            reference_number="RTGS20260322508",
+            is_fraud=True,
+            typology="dormant_activation",
+            case_id="CASE-2850",
+        ),
+        Transaction(
+            transaction_id="TXN-2850-009",
+            sender="ACC-0504",
+            receiver="ACC-0505",
+            amount=990000,
+            timestamp="12:15:00",
+            channel="NEFT",
+            reference_number="NEFT20260322509",
+            is_fraud=True,
+            typology="dormant_activation",
+            case_id="CASE-2850",
+        ),
+    ]
+    return accounts, txns
+
+
+def build_case_2851() -> tuple[list[Account], list[Transaction]]:
+    """
+    CASE-2851 — Profile Mismatch Pattern
+    A customer with low declared annual income (₹2.4L) receives multiple large incoming corporate RTGS transfers.
+    Funnels ₹70L total to family savings accounts within 4.5h.
+    """
+    accounts = [
+        Account(
+            account_id="ACC-0510",
+            account_type="savings",
+            status="flagged",
+            kyc_tier=3,
+            created_date="2021-08-14",
+            last_active_date="2026-03-22",
+            declared_income=240000,   # Declared income 2.4L
+            home_branch="SB-Branch Mumbai Fort",
+            is_dormant=False,
+            is_pep_adjacent=False,
+            owner_name="Amit Sharma",
+            owner_type="individual",
+            risk_level="critical",
+            notes="Significant mismatch between declared annual income (₹2.4L) and ₹70L single-day volume.",
+        ),
+        Account(
+            account_id="ACC-0511",
+            account_type="savings",
+            status="flagged",
+            kyc_tier=2,
+            created_date="2022-01-10",
+            last_active_date="2026-03-22",
+            declared_income=180000,
+            home_branch="SB-Branch Mumbai Fort",
+            is_dormant=False,
+            is_pep_adjacent=False,
+            owner_name="Priya Sharma",
+            owner_type="individual",
+            risk_level="high",
+            notes="Co-conspirator (spouse). Received ₹35L NEFT from Amit Sharma.",
+        ),
+        Account(
+            account_id="ACC-0512",
+            account_type="savings",
+            status="flagged",
+            kyc_tier=2,
+            created_date="2023-05-18",
+            last_active_date="2026-03-22",
+            declared_income=300000,
+            home_branch="SB-Branch Mumbai Central",
+            is_dormant=False,
+            is_pep_adjacent=False,
+            owner_name="Rohan Sharma",
+            owner_type="individual",
+            risk_level="high",
+            notes="Co-conspirator (brother). Received ₹35L NEFT from Amit Sharma.",
+        ),
+        Account(
+            account_id="ACC-0901",
+            account_type="current",
+            status="flagged",
+            kyc_tier=1,
+            created_date="2020-04-05",
+            last_active_date="2026-03-22",
+            declared_income=0,
+            home_branch="CB-Branch Fort Mumbai",
+            is_dormant=False,
+            is_pep_adjacent=True,
+            owner_name="Arcturus Holdings Pvt Ltd",
+            owner_type="entity",
+            risk_level="critical",
+            notes="Origin shell entity. Sent ₹25L to Amit Sharma.",
+        ),
+        Account(
+            account_id="ACC-0902",
+            account_type="current",
+            status="flagged",
+            kyc_tier=1,
+            created_date="2021-01-15",
+            last_active_date="2026-03-22",
+            declared_income=0,
+            home_branch="CB-Branch Nariman Point",
+            is_dormant=False,
+            is_pep_adjacent=False,
+            owner_name="Meridian Exports LLP",
+            owner_type="entity",
+            risk_level="critical",
+            notes="Transit shell. Sent ₹30L to Amit Sharma.",
+        ),
+        Account(
+            account_id="ACC-0903",
+            account_type="current",
+            status="flagged",
+            kyc_tier=1,
+            created_date="2021-08-22",
+            last_active_date="2026-03-22",
+            declared_income=0,
+            home_branch="CB-Branch Colaba",
+            is_dormant=False,
+            is_pep_adjacent=False,
+            owner_name="Zenith Capital Advisory Pvt Ltd",
+            owner_type="entity",
+            risk_level="critical",
+            notes="Second transit shell. Sent ₹15L to Amit Sharma.",
+        ),
+    ]
+
+    txns = [
+        # Large incoming corporate transfers
+        Transaction(
+            transaction_id="TXN-2851-001",
+            sender="ACC-0901",
+            receiver="ACC-0510",
+            amount=2500000,
+            timestamp="10:00:00",
+            channel="RTGS",
+            reference_number="RTGS20260322601",
+            is_fraud=True,
+            typology="profile_mismatch",
+            case_id="CASE-2851",
+        ),
+        Transaction(
+            transaction_id="TXN-2851-002",
+            sender="ACC-0902",
+            receiver="ACC-0510",
+            amount=3000000,
+            timestamp="11:30:00",
+            channel="RTGS",
+            reference_number="RTGS20260322602",
+            is_fraud=True,
+            typology="profile_mismatch",
+            case_id="CASE-2851",
+        ),
+        Transaction(
+            transaction_id="TXN-2851-003",
+            sender="ACC-0903",
+            receiver="ACC-0510",
+            amount=1500000,
+            timestamp="13:00:00",
+            channel="RTGS",
+            reference_number="RTGS20260322603",
+            is_fraud=True,
+            typology="profile_mismatch",
+            case_id="CASE-2851",
+        ),
+        # Immediate distribution to family
+        Transaction(
+            transaction_id="TXN-2851-004",
+            sender="ACC-0510",
+            receiver="ACC-0511",
+            amount=3500000,
+            timestamp="14:00:00",
+            channel="NEFT",
+            reference_number="NEFT20260322604",
+            is_fraud=True,
+            typology="profile_mismatch",
+            case_id="CASE-2851",
+        ),
+        Transaction(
+            transaction_id="TXN-2851-005",
+            sender="ACC-0510",
+            receiver="ACC-0512",
+            amount=3500000,
+            timestamp="14:30:00",
+            channel="NEFT",
+            reference_number="NEFT20260322605",
+            is_fraud=True,
+            typology="profile_mismatch",
+            case_id="CASE-2851",
+        ),
+    ]
+    return accounts, txns
+
+
 # ════════════════════════════════════════════════════════════════
 # CASE METADATA (for alert dashboard)
 # ════════════════════════════════════════════════════════════════
@@ -629,6 +1022,48 @@ CASE_META = {
         "status":              "active",
         "created_at":          "2026-03-22T08:10:00",
         "gnn_score":           0.91,
+        "investigator_id":     None,
+        "notes":               "",
+    },
+    "CASE-2850": {
+        "case_id":             "CASE-2850",
+        "typology":            "Dormant Account Activation",
+        "typology_code":       "dormant_activation",
+        "fatf_reference":      "FATF Typology 15",
+        "pmla_section":        "Section 12",
+        "risk_score":          0.89,
+        "confidence":          "89%",
+        "risk_level":          "critical",
+        "total_amount":        5000000,
+        "accounts_count":      6,
+        "hops":                2,
+        "duration_minutes":    165,
+        "duration_display":    "2h 45m",
+        "channel":             "RTGS + NEFT + IMPS",
+        "status":              "active",
+        "created_at":          "2026-03-22T09:30:00",
+        "gnn_score":           0.89,
+        "investigator_id":     None,
+        "notes":               "",
+    },
+    "CASE-2851": {
+        "case_id":             "CASE-2851",
+        "typology":            "Profile Mismatch Pattern",
+        "typology_code":       "profile_mismatch",
+        "fatf_reference":      "FATF Typology 2",
+        "pmla_section":        "Section 12",
+        "risk_score":          0.92,
+        "confidence":          "92%",
+        "risk_level":          "critical",
+        "total_amount":        7000000,
+        "accounts_count":      6,
+        "hops":                2,
+        "duration_minutes":    270,
+        "duration_display":    "4h 30m",
+        "channel":             "RTGS + NEFT",
+        "status":              "active",
+        "created_at":          "2026-03-22T10:00:00",
+        "gnn_score":           0.92,
         "investigator_id":     None,
         "notes":               "",
     },
@@ -1201,11 +1636,13 @@ def ensure_local_demo_data() -> bool:
     accs_2847, txns_2847 = build_case_2847()
     accs_2848, txns_2848 = build_case_2848()
     accs_2849, txns_2849 = build_case_2849()
+    accs_2850, txns_2850 = build_case_2850()
+    accs_2851, txns_2851 = build_case_2851()
     acc_map: dict[str, Account] = {}
-    for acc in accs_2847 + accs_2848 + accs_2849:
+    for acc in accs_2847 + accs_2848 + accs_2849 + accs_2850 + accs_2851:
         acc_map[acc.account_id] = acc
     all_accounts = list(acc_map.values())
-    all_txns = txns_2847 + txns_2848 + txns_2849
+    all_txns = txns_2847 + txns_2848 + txns_2849 + txns_2850 + txns_2851
     nx_results = run_networkx_analysis(accs_2847, txns_2847) or {}
     seed_local(all_accounts, all_txns, nx_results)
     return True
@@ -1253,12 +1690,18 @@ Examples:
     accs_2849, txns_2849 = build_case_2849()
     ok(f"CASE-2849: {len(accs_2849)} accounts, {len(txns_2849)} transactions")
 
+    accs_2850, txns_2850 = build_case_2850()
+    ok(f"CASE-2850: {len(accs_2850)} accounts, {len(txns_2850)} transactions")
+
+    accs_2851, txns_2851 = build_case_2851()
+    ok(f"CASE-2851: {len(accs_2851)} accounts, {len(txns_2851)} transactions")
+
     # Deduplicate accounts (some may appear in multiple cases)
     acc_map: dict[str, Account] = {}
-    for acc in accs_2847 + accs_2848 + accs_2849:
+    for acc in accs_2847 + accs_2848 + accs_2849 + accs_2850 + accs_2851:
         acc_map[acc.account_id] = acc
     all_accounts = list(acc_map.values())
-    all_txns = txns_2847 + txns_2848 + txns_2849
+    all_txns = txns_2847 + txns_2848 + txns_2849 + txns_2850 + txns_2851
 
     ok(f"Total unique accounts: {len(all_accounts)}")
     ok(f"Total transactions   : {len(all_txns)}")

@@ -7,6 +7,7 @@ interface FlowArrowProps {
   showLabel?: boolean;
   /** Stagger overlapping labels along the edge normal */
   labelIndex?: number;
+  opacity?: number;
 }
 
 export default function FlowArrow({
@@ -17,6 +18,7 @@ export default function FlowArrow({
   curved = false,
   showLabel = false,
   labelIndex = 0,
+  opacity,
 }: FlowArrowProps) {
   const fromX = `${from.x}%`;
   const fromY = `${from.y}%`;
@@ -24,7 +26,8 @@ export default function FlowArrow({
   const toY = `${to.y}%`;
 
   const strokeColor = color === 'red' ? '#EF4444' : '#00C9A7';
-  const opacity = color === 'red' ? 0.75 : 0.5;
+  const baseOpacity = color === 'red' ? 0.75 : 0.5;
+  const strokeOpacity = opacity !== undefined ? opacity : baseOpacity;
   const markerId = color === 'red' ? 'arrowhead-red' : 'arrowhead-teal';
 
   let pathD: string;
@@ -61,7 +64,7 @@ export default function FlowArrow({
         stroke={strokeColor}
         strokeWidth="1.5"
         strokeDasharray="4 4"
-        opacity={opacity}
+        opacity={strokeOpacity}
         markerEnd={`url(#${markerId})`}
       />
 

@@ -138,6 +138,46 @@ def _dormant_activation() -> tuple[list[dict], str]:
     return results, cypher
 
 
+def _profile_mismatches() -> tuple[list[dict], str]:
+    sql = """
+        SELECT a.account_id, a.owner_name, a.declared_income, a.risk_level,
+               SUM(t.amount) AS total_txn_volume
+        FROM accounts a
+        JOIN transactions t ON t.sender = a.account_id OR t.receiver = a.account_id
+        WHERE a.declared_income > 0 AND a.owner_type = 'individual'
+        GROUP BY a.account_id, a.owner_name, a.declared_income, a.risk_level
+        HAVING SUM(t.amount) > a.declared_income * 3
+        ORDER BY total_txn_volume DESC
+        LIMIT 20
+    """
+    rows = _run_sql(sql)
+    results = []
+    for r in rows:
+        aid = r.get("account_id")
+        level = r.get("risk_level") or "medium"
+        declared = float(r.get("declared_income") or 0)
+        total_vol = float(r.get("total_txn_volume") or 0)
+        ratio = round(total_vol / declared, 1) if declared > 0 else 0
+        results.append({
+            "account_id": aid,
+            "owner_name": r.get("owner_name") or "—",
+            "declared_income": declared,
+            "total_volume": total_vol,
+            "volume_to_income_ratio": f"{ratio}x",
+            "risk_level": level,
+            "risk_score": _risk_score(level),
+        })
+    cypher = (
+        "MATCH (a:Account)-[t:TRANSFERRED_TO]-()\n"
+        "WHERE a.declared_income > 0 AND a.owner_type = 'individual'\n"
+        "WITH a, sum(t.amount) AS total_vol\n"
+        "WHERE total_vol > a.declared_income * 3\n"
+        "RETURN a.account_id, a.owner_name, a.declared_income, total_vol\n"
+        "ORDER BY total_vol DESC LIMIT 20"
+    )
+    return results, cypher
+
+
 def _structuring_patterns(min_amount: float = 100_000) -> tuple[list[dict], str]:
     sql = """
         SELECT sender, receiver, amount, channel, timestamp, case_id
@@ -435,6 +475,10 @@ def execute_nl_query_local(query: str, case_id: Optional[str] = None) -> dict:
         results, cypher = _structuring_patterns()
         summary = f"Found {len(results)} transfers at or above ₹1L."
         handler = "structuring"
+    elif "profile" in q or "mismatch" in q or "income" in q:
+        results, cypher = _profile_mismatches()
+        summary = f"Found {len(results)} accounts with transaction volumes exceeding declared income profiles."
+        handler = "profile_mismatch"
     elif "risk profile" in q or "entity" in q or "owner" in q:
         name = re.sub(r"(?i)(what is|the|risk profile of|entity|account|owner)", "", query).strip()
         name = name.replace("?", "").strip() or account_id or ""

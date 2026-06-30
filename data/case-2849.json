@@ -35,7 +35,7 @@
       "owner_name": "Arcturus Holdings Pvt Ltd",
       "owner_type": "entity",
       "risk_level": "critical",
-      "notes": "Origin shell entity. Registered in Gujarat with Mumbai branch. PEP adjacent \u2014 director linked to Tier-1 political donor."
+      "notes": "Origin shell entity. Sent \u20b925L to Amit Sharma."
     },
     {
       "account_id": "ACC-0902",
@@ -51,7 +51,7 @@
       "owner_name": "Meridian Exports LLP",
       "owner_type": "entity",
       "risk_level": "critical",
-      "notes": "Transit shell. Received \u20b9156.4L, forwarded within 45 mins. No legitimate trade activity on record."
+      "notes": "Transit shell. Sent \u20b930L to Amit Sharma."
     },
     {
       "account_id": "ACC-0903",
@@ -67,7 +67,7 @@
       "owner_name": "Zenith Capital Advisory Pvt Ltd",
       "owner_type": "entity",
       "risk_level": "critical",
-      "notes": "Second transit shell. Same registered address as ACC-0902 owner."
+      "notes": "Second transit shell. Sent \u20b915L to Amit Sharma."
     },
     {
       "account_id": "ACC-0904",
