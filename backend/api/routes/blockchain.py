@@ -4,7 +4,7 @@ FundLens — /api/blockchain evidence audit trail endpoints.
 import json
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Depends
 from fastapi.responses import Response
 from pydantic import BaseModel, Field
 
@@ -18,6 +18,7 @@ from backend.blockchain.evidence_chain import (
     write_block,
 )
 from backend.database.demo_data import get_alert_detail
+from backend.security.rbac import require_permission
 
 router = APIRouter(prefix="/api/blockchain", tags=["Blockchain"])
 
@@ -139,9 +140,13 @@ async def record_evidence_event(case_id: str, body: RecordEvidenceEventBody):
 
 
 @router.post("/{case_id}/approve")
-async def approve_str_evidence(case_id: str, body: RecordEvidenceEventBody | None = None):
+async def approve_str_evidence(
+    case_id: str,
+    body: RecordEvidenceEventBody | None = None,
+    user: dict = Depends(require_permission("BLOCKCHAIN_APPROVE"))
+):
     """Record supervisor STR draft approval on the evidence chain."""
-    actor = (body.actor_id if body else None) or "supervisor"
+    actor = user["id"]
     notes = (body.notes if body else None) or ""
     payload = (body.payload if body else None) or {}
 

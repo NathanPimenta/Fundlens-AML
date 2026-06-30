@@ -17,16 +17,46 @@ import { getApiBase } from '../lib/apiBase';
 // ── Configuration ────────────────────────────────────────────────
 const API_BASE = getApiBase();
 
+export class APIError extends Error {
+  status: number;
+  data: any;
+  constructor(message: string, status: number, data: any) {
+    super(message);
+    this.name = 'APIError';
+    this.status = status;
+    this.data = data;
+  }
+}
+
 async function apiFetch<T>(path: string, options?: RequestInit): Promise<T> {
   const url = `${API_BASE}${path}`;
+
+  const authHeaders: Record<string, string> = {};
+  try {
+    const sessionStr = localStorage.getItem('fundlens_auth_session');
+    if (sessionStr) {
+      const session = JSON.parse(sessionStr);
+      if (session?.id) {
+        authHeaders['X-User-Id'] = session.id;
+      }
+    }
+  } catch (e) {
+    console.error('Failed to parse auth header:', e);
+  }
+
   const res = await fetch(url, {
-    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    headers: {
+      'Content-Type': 'application/json',
+      ...authHeaders,
+      ...options?.headers,
+    },
     ...options,
   });
 
   if (!res.ok) {
     const error = await res.json().catch(() => ({ detail: res.statusText }));
-    throw new Error(error.detail || `API error: ${res.status}`);
+    const msg = typeof error.detail === 'string' ? error.detail : (error.detail?.error || `API error: ${res.status}`);
+    throw new APIError(msg, res.status, error.detail);
   }
 
   return res.json();
@@ -107,8 +137,24 @@ export function streamSTRGeneration(
 
   (async () => {
     try {
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+      };
+      try {
+        const sessionStr = localStorage.getItem('fundlens_auth_session');
+        if (sessionStr) {
+          const session = JSON.parse(sessionStr);
+          if (session?.id) {
+            headers['X-User-Id'] = session.id;
+          }
+        }
+      } catch (e) {
+        console.error('Failed to parse auth header for stream:', e);
+      }
+
       const res = await fetch(`${API_BASE}/str/${caseId}/generate`, {
         method: 'POST',
+        headers,
         signal: controller.signal,
       });
 
@@ -311,5 +357,19 @@ export async function queryGraph(query: string, caseId?: string | null): Promise
   return apiFetch('/query', {
     method: 'POST',
     body: JSON.stringify({ query, case_id: caseId || undefined }),
+  });
+}
+
+// ── Authentication ────────────────────────────────────────────────
+export async function fetchCurrentUser(userId: string): Promise<any> {
+  return apiFetch('/auth/me', {
+    headers: { 'X-User-Id': userId }
+  });
+}
+
+export async function loginUser(userId: string): Promise<any> {
+  return apiFetch('/auth/login', {
+    method: 'POST',
+    body: JSON.stringify({ user_id: userId })
   });
 }

@@ -232,6 +232,13 @@ export function subgraphToLayout(
     });
   }
 
+  // Sort back by original index to ensure chronological order during playback
+  capped.sort((a, b) => {
+    const idxA = a.id === 'edge-return' ? 9999 : parseInt(a.id.replace('edge-', '')) || 0;
+    const idxB = b.id === 'edge-return' ? 9999 : parseInt(b.id.replace('edge-', '')) || 0;
+    return idxA - idxB;
+  });
+
   const svgArrows: LayoutArrow[] = capped.map(({ rawAmount: _, ...arrow }) => arrow);
 
   return { nodes: svgNodes, arrows: svgArrows };

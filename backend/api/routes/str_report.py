@@ -8,9 +8,11 @@ import uuid
 from datetime import datetime
 from typing import Any, AsyncGenerator
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Depends
 from fastapi.responses import Response, StreamingResponse
 from pydantic import BaseModel
+
+from backend.security.rbac import require_permission
 
 from backend.api.models import STRStage, STRSubmitRequest, STRSubmitResponse
 from backend.blockchain.bootstrap import ensure_case_chain
@@ -180,11 +182,41 @@ async def _stream_with_lock(case_id: str) -> AsyncGenerator[str, None]:
             yield chunk
 
 
+from backend.security.rbac import require_permission, get_current_user
+
+logger = logging.getLogger(__name__)
+router = APIRouter(prefix="/api/str", tags=["STR Generation"])
+
+
+# (Preceding models and helper functions remain unchanged)
+
+
 @router.post("/{case_id}/generate")
-async def generate_str_endpoint(case_id: str):
+async def generate_str_endpoint(
+    case_id: str,
+    user: dict = Depends(get_current_user)
+):
     """Stream STR generation progress via Server-Sent Events."""
     init_str_tables()
     logger.info("STR generation requested for %s", case_id)
+    
+    # Check if case is assigned to this investigator or if they have STR_SUBMIT
+    case_data = get_case_data(case_id)
+    if not case_data:
+        raise HTTPException(status_code=404, detail=f"Case {case_id} not found")
+        
+    has_submit_perm = "STR_SUBMIT" in user.get("permissions", [])
+    is_assigned = case_data.get("investigator_id") == user["id"]
+    
+    if not has_submit_perm and not is_assigned:
+        raise HTTPException(
+            status_code=403,
+            detail={
+                "error": "insufficient_permissions",
+                "message": "Only the assigned investigator or a user with STR_SUBMIT can generate the STR."
+            }
+        )
+        
     return StreamingResponse(
         _stream_with_lock(case_id),
         media_type="text/event-stream",
@@ -197,7 +229,23 @@ async def generate_str_endpoint(case_id: str):
 
 
 @router.get("/{case_id}")
-async def get_str(case_id: str):
+async def get_str(case_id: str, user: dict = Depends(get_current_user)):
+    case_data = get_case_data(case_id)
+    if not case_data:
+        raise HTTPException(status_code=404, detail=f"Case {case_id} not found")
+        
+    has_submit_perm = "STR_SUBMIT" in user.get("permissions", [])
+    is_assigned = case_data.get("investigator_id") == user["id"]
+    
+    if not has_submit_perm and not is_assigned:
+        raise HTTPException(
+            status_code=403,
+            detail={
+                "error": "insufficient_permissions",
+                "message": "Only the assigned investigator or a user with STR_SUBMIT can view the STR."
+            }
+        )
+        
     report = _get_report(case_id)
     if not report:
         raise HTTPException(status_code=404, detail=f"No STR found for case {case_id}")
@@ -205,7 +253,23 @@ async def get_str(case_id: str):
 
 
 @router.post("/{case_id}/draft")
-async def save_str_draft(case_id: str, body: STRDraftBody):
+async def save_str_draft(case_id: str, body: STRDraftBody, user: dict = Depends(get_current_user)):
+    case_data = get_case_data(case_id)
+    if not case_data:
+        raise HTTPException(status_code=404, detail=f"Case {case_id} not found")
+        
+    has_submit_perm = "STR_SUBMIT" in user.get("permissions", [])
+    is_assigned = case_data.get("investigator_id") == user["id"]
+    
+    if not has_submit_perm and not is_assigned:
+        raise HTTPException(
+            status_code=403,
+            detail={
+                "error": "insufficient_permissions",
+                "message": "Only the assigned investigator or a user with STR_SUBMIT can save drafts."
+            }
+        )
+        
     existing = _get_report(case_id) or {"case_id": case_id}
     merged = {
         **existing,
@@ -275,7 +339,11 @@ async def download_str_text(case_id: str):
 
 
 @router.post("/{case_id}/submit")
-async def submit_str(case_id: str, body: STRSubmitRequest):
+async def submit_str(
+    case_id: str,
+    body: STRSubmitRequest,
+    user: dict = Depends(require_permission("STR_SUBMIT"))
+):
     report = _get_report(case_id)
     if not report:
         raise HTTPException(status_code=404, detail=f"No STR found for case {case_id}")
@@ -292,7 +360,7 @@ async def submit_str(case_id: str, body: STRSubmitRequest):
                 "submission_id": submission_id,
                 "fiu_reference": fiu_reference,
             },
-            actor_id=body.investigator_id,
+            actor_id=user["id"],
             metadata={"notes": body.notes},
         )
         blockchain_block = block.block_id

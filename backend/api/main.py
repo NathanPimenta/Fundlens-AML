@@ -129,6 +129,7 @@ from backend.api.routes.config import router as config_router
 from backend.api.routes.mobile import router as mobile_router
 from backend.api.routes.query import router as query_router
 from backend.api.routes.str_report import router as str_router
+from backend.api.routes.auth import router as auth_router
 
 app.include_router(alerts_router)
 app.include_router(cases_router)
@@ -140,6 +141,7 @@ app.include_router(blockchain_router)
 app.include_router(query_router)
 app.include_router(config_router)
 app.include_router(mobile_router)
+app.include_router(auth_router)
 
 
 @app.get("/api/health")

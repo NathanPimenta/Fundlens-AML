@@ -11,6 +11,8 @@ import {
 import { useNavigate } from 'react-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import MiniFlowGraph from '../components/MiniFlowGraph';
+import UserProfileBadge from '../components/UserProfileBadge';
+import { useAuth } from '../../context/AuthContext';
 import { saveSTRDraft, submitSTR } from '../../api/client';
 import { useSTRGeneration } from '../../hooks/useSTRGeneration';
 import { useBlockchain } from '../../hooks/useBlockchain';
@@ -23,6 +25,7 @@ import { buildReportText, downloadStrPdf, downloadStrText } from '../../lib/strE
 export default function STRGeneration() {
   const navigate = useNavigate();
   const { caseId } = useSelectedCaseId();
+  const { hasPermission } = useAuth();
 
   const { stage, message, progress, report, error, generating, generate } = useSTRGeneration();
   const { chain } = useBlockchain(caseId || null);
@@ -232,13 +235,16 @@ export default function STRGeneration() {
           <button
             type="button"
             onClick={handleSubmit}
-            disabled={!activeReport || submitting}
-            className="px-6 py-2 bg-[#E31E24] text-white hover:bg-[#d4183d] rounded text-sm font-semibold flex items-center gap-2 disabled:opacity-50"
+            disabled={!activeReport || submitting || !hasPermission("STR_SUBMIT")}
+            title={!hasPermission("STR_SUBMIT") ? "Only Supervisor or FIU Liaison roles can submit STRs" : undefined}
+            className="px-6 py-2 bg-[#E31E24] text-white hover:bg-[#d4183d] rounded text-sm font-semibold flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
             style={{ fontFamily: 'Syne' }}
           >
             {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <ExternalLink className="w-4 h-4" />}
             Submit to FIU-IND
           </button>
+          <div className="w-[1px] h-6 bg-gray-200 mx-2" />
+          <UserProfileBadge />
         </div>
       </div>
 

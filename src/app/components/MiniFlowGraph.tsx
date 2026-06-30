@@ -44,10 +44,10 @@ export default function MiniFlowGraph({ caseId }: MiniFlowGraphProps) {
     <div className="bg-gray-50 border border-gray-200 rounded-lg p-3 relative" style={{ height: '340px' }}>
       <svg className="w-full h-full">
         <defs>
-          <marker id="mini-arrowhead-red" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto">
+          <marker id="arrowhead-red" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto">
             <path d="M0,0 L0,8 L8,4 z" fill="#EF4444" opacity="0.7" />
           </marker>
-          <marker id="mini-arrowhead-teal" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto">
+          <marker id="arrowhead-teal" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto">
             <path d="M0,0 L0,8 L8,4 z" fill="#00C9A7" opacity="0.5" />
           </marker>
           <filter id="mini-amber-glow" x="-50%" y="-50%" width="200%" height="200%">

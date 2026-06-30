@@ -167,8 +167,12 @@ def _load_all_cases(status: Optional[str] = None) -> list[dict]:
     return sorted(by_id.values(), key=lambda c: float(c.get("risk_score") or 0), reverse=True)
 
 
-def get_alerts(status: Optional[str] = None, limit: int = 20, offset: int = 0) -> dict:
+def get_alerts(status: Optional[str] = None, limit: int = 20, offset: int = 0, user_id: Optional[str] = None, role: Optional[str] = None) -> dict:
     all_cases = _load_all_cases(status)
+    
+    if role and role != "Supervisor" and user_id:
+        all_cases = [c for c in all_cases if c.get("investigator_id") == user_id]
+        
     total = len(all_cases)
     cases = all_cases[offset : offset + limit]
             
@@ -187,6 +191,7 @@ def get_alerts(status: Optional[str] = None, limit: int = 20, offset: int = 0) -
             "status":         c["status"],
             "confidence":     c["confidence"],
             "risk_level":     c["risk_level"],
+            "investigator_id": c.get("investigator_id"),
         })
         
     return {"alerts": alerts, "total": total, "page": (offset // limit) + 1}
@@ -617,8 +622,8 @@ def get_entity(account_id: str) -> Optional[dict]:
         primary_case_id = max(case_ids.items(), key=lambda x: x[1])[0]
         for cid in sorted(case_ids.keys(), key=lambda c: case_ids[c], reverse=True)[:5]:
             case_rows = _query_db(
-                "SELECT case_id, typology, status, created_at FROM cases WHERE case_id = %s",
-                "SELECT case_id, typology, status, created_at FROM cases WHERE case_id = ?",
+                "SELECT case_id, typology, status, created_at, investigator_id FROM cases WHERE case_id = %s",
+                "SELECT case_id, typology, status, created_at, investigator_id FROM cases WHERE case_id = ?",
                 (cid,)
             )
             if case_rows:
@@ -628,6 +633,7 @@ def get_entity(account_id: str) -> Optional[dict]:
                     "typology": case_row.get("typology") or "",
                     "status": case_row.get("status") or "active",
                     "created_at": _iso_datetime(case_row.get("created_at")),
+                    "investigator_id": case_row.get("investigator_id"),
                 })
 
     risk_level = (account.get("risk_level") or "medium").lower()
@@ -717,6 +723,15 @@ def _parse_case_datetime(value) -> Optional["datetime"]:
 def _investigator_display(inv_id: str) -> tuple[str, str]:
     key = (inv_id or "unassigned").strip()
     name = _INVESTIGATOR_LABELS.get(key)
+    if not name:
+        try:
+            from backend.database.config_store import get_users
+            users = get_users()
+            user = next((u for u in users if u.get("id") == key), None)
+            if user:
+                name = user.get("name")
+        except Exception:
+            pass
     if not name:
         name = key.replace("-", " ").replace("_", " ").title()
     parts = name.split()
@@ -975,8 +990,8 @@ def update_alert_status(case_id: str, status: str, investigator_id: str, notes: 
             with get_dict_db() as conn:
                 with conn.cursor() as cur:
                     cur.execute(
-                        "UPDATE cases SET status = %s WHERE case_id = %s",
-                        (status, case_id),
+                        "UPDATE cases SET status = %s, investigator_id = %s, notes = %s WHERE case_id = %s",
+                        (status, investigator_id, notes, case_id),
                     )
                     if cur.rowcount == 0:
                         return False
@@ -989,8 +1004,8 @@ def update_alert_status(case_id: str, status: str, investigator_id: str, notes: 
         return False
     with _sqlite_conn() as con:
         cur = con.execute(
-            "UPDATE cases SET status = ? WHERE case_id = ?",
-            (status, case_id),
+            "UPDATE cases SET status = ?, investigator_id = ?, notes = ? WHERE case_id = ?",
+            (status, investigator_id, notes, case_id),
         )
         con.commit()
         return cur.rowcount > 0

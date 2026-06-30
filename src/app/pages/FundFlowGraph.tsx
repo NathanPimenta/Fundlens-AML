@@ -4,6 +4,7 @@ import { ArrowLeft, Loader2 } from 'lucide-react';
 import GraphNode from '../components/GraphNode';
 import FlowArrow from '../components/FlowArrow';
 import NodeTooltip from '../components/NodeTooltip';
+import UserProfileBadge from '../components/UserProfileBadge';
 import { useAlertDetail, useAlerts } from '../../hooks/useAlerts';
 import { usePersistCaseContext } from '../../hooks/useCaseContext';
 import { useSelectedCaseId } from '../../hooks/useSelectedCaseId';
@@ -129,6 +130,8 @@ export default function FundFlowGraph() {
           >
             Generate STR
           </button>
+          <div className="w-[1px] h-6 bg-gray-200 mx-1" />
+          <UserProfileBadge />
         </div>
       </div>
 
@@ -141,10 +144,10 @@ export default function FundFlowGraph() {
           ) : (
             <svg className="w-full h-full">
               <defs>
-                <marker id="arrowhead-teal-g" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto" markerUnits="strokeWidth">
+                <marker id="arrowhead-teal" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto" markerUnits="strokeWidth">
                   <path d="M0,0 L0,6 L9,3 z" fill="#00C9A7" opacity="0.7" />
                 </marker>
-                <marker id="arrowhead-red-g" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto" markerUnits="strokeWidth">
+                <marker id="arrowhead-red" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto" markerUnits="strokeWidth">
                   <path d="M0,0 L0,6 L9,3 z" fill="#EF4444" opacity="0.8" />
                 </marker>
                 <filter id="amber-glow-g" x="-50%" y="-50%" width="200%" height="200%">

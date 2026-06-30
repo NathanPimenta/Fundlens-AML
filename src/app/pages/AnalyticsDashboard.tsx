@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import { useMemo } from 'react';
 import { useNavigate } from 'react-router';
+import UserProfileBadge from '../components/UserProfileBadge';
 import { useAnalytics } from '../../hooks/useAnalytics';
 import {
   buildTrendArea,
@@ -131,6 +132,8 @@ export default function AnalyticsDashboard() {
           >
             Export report
           </button>
+          <div className="w-[1px] h-6 bg-gray-200 mx-1" />
+          <UserProfileBadge />
         </div>
       </div>
 

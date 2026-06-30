@@ -4,8 +4,12 @@ import { AlertTriangle, TrendingUp, Clock, ExternalLink, ChevronRight, Loader2, 
 import GraphNode from '../components/GraphNode';
 import FlowArrow from '../components/FlowArrow';
 import NodeTooltip from '../components/NodeTooltip';
+import UserProfileBadge from '../components/UserProfileBadge';
+import { useAuth } from '../../context/AuthContext';
 import { useAlerts, useAlertDetail } from '../../hooks/useAlerts';
 import { usePersistCaseContext } from '../../hooks/useCaseContext';
+import { usePlatformConfig } from '../../hooks/usePlatformConfig';
+import { updateAlertStatus } from '../../api/client';
 import { subgraphToLayout, formatAmount } from '../../lib/subgraphLayout';
 import { setStoredCaseId } from '../../lib/selectedCase';
 
@@ -24,8 +28,10 @@ export default function InvestigationDashboard() {
   const [playbackStep, setPlaybackStep] = useState<number>(-1);
   const [isPlaying, setIsPlaying] = useState<boolean>(false);
 
+  const { hasPermission } = useAuth();
+
   // Fetch alerts from API
-  const { alerts, loading: alertsLoading } = useAlerts();
+  const { alerts, loading: alertsLoading, refetch: refetchAlerts } = useAlerts();
   // Select the first alert automatically once alerts are loaded
   useEffect(() => {
     if (!selectedAlert && alerts.length > 0) {
@@ -34,8 +40,26 @@ export default function InvestigationDashboard() {
   }, [alerts, selectedAlert]);
 
   // Fetch selected alert detail for subgraph
-  const { detail } = useAlertDetail(selectedAlert);
+  const { detail, refetch: refetchDetail } = useAlertDetail(selectedAlert);
   usePersistCaseContext(selectedAlert || null, detail);
+
+  // Fetch platform config users (investigators)
+  const { config } = usePlatformConfig();
+  const users = useMemo(() => {
+    return config?.users?.filter(u => u.active) || [];
+  }, [config]);
+
+  const handleAssignInvestigator = async (assigneeId: string) => {
+    if (!selectedAlert) return;
+    try {
+      const currentStatus = selectedCase?.status || 'under_review';
+      const assigneeName = users.find(u => u.id === assigneeId)?.name || 'Unassigned';
+      await updateAlertStatus(selectedAlert, currentStatus, assigneeId, `Assigned case to ${assigneeName}`);
+      await Promise.all([refetchAlerts(), refetchDetail()]);
+    } catch (err) {
+      alert((err as Error).message);
+    }
+  };
 
   // Convert API data to SVG visualization
   const { nodes, arrows } = useMemo(
@@ -46,24 +70,20 @@ export default function InvestigationDashboard() {
   useEffect(() => {
     let timer: any;
     if (isPlaying) {
-      if (playbackStep >= arrows.length - 1) {
-        setPlaybackStep(0);
-      }
       timer = setInterval(() => {
         setPlaybackStep((prev) => {
-          if (prev >= arrows.length - 1) {
+          const next = prev === -1 || prev >= arrows.length - 1 ? 0 : prev + 1;
+          if (next === arrows.length - 1) {
             setIsPlaying(false);
-            clearInterval(timer);
-            return prev;
           }
-          return prev + 1;
+          return next;
         });
-      }, 1000);
+      }, 2000);
     }
     return () => {
       if (timer) clearInterval(timer);
     };
-  }, [isPlaying, arrows.length, playbackStep]);
+  }, [isPlaying, arrows.length]);
 
   useEffect(() => {
     setPlaybackStep(-1);
@@ -110,6 +130,8 @@ export default function InvestigationDashboard() {
     return offsets[idx] || `${idx * 5 + 2}m ago`;
   };
 
+  console.log("InvestigationDashboard Render playbackStep:", playbackStep, "isPlaying:", isPlaying, "arrows length:", arrows.length);
+
   return (
     <div className="min-h-screen bg-white">
       {/* Top Bar */}
@@ -122,14 +144,12 @@ export default function InvestigationDashboard() {
             <p className="text-gray-600 text-xs">Union Bank of India · Investigation Dashboard</p>
           </div>
         </div>
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-6">
           <div className="flex items-center gap-2">
             <div className="w-2 h-2 rounded-full bg-green-500" />
             <span className="text-gray-600 text-xs">System Active</span>
           </div>
-          <div className="text-gray-600 text-xs" style={{ fontFamily: 'DM Mono' }}>
-            {new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}
-          </div>
+          <UserProfileBadge />
         </div>
       </div>
 
@@ -221,6 +241,7 @@ export default function InvestigationDashboard() {
         <div className="flex-1 relative bg-gradient-to-br from-gray-50 to-gray-100 border-x border-gray-200">
           <svg className="w-full h-full">
             <defs>
+              {/* Default Arrowheads */}
               <marker
                 id="arrowhead-teal"
                 markerWidth="10"
@@ -244,6 +265,78 @@ export default function InvestigationDashboard() {
                 <path d="M0,0 L0,6 L9,3 z" fill="#EF4444" opacity="0.7" />
               </marker>
 
+              {/* Active Arrowheads */}
+              <marker
+                id="arrowhead-teal-active"
+                markerWidth="10"
+                markerHeight="10"
+                refX="9"
+                refY="3"
+                orient="auto"
+                markerUnits="strokeWidth"
+              >
+                <path d="M0,0 L0,6 L9,3 z" fill="#00C9A7" opacity="1.0" />
+              </marker>
+              <marker
+                id="arrowhead-red-active"
+                markerWidth="10"
+                markerHeight="10"
+                refX="9"
+                refY="3"
+                orient="auto"
+                markerUnits="strokeWidth"
+              >
+                <path d="M0,0 L0,6 L9,3 z" fill="#EF4444" opacity="1.0" />
+              </marker>
+
+              {/* Past Arrowheads */}
+              <marker
+                id="arrowhead-teal-past"
+                markerWidth="10"
+                markerHeight="10"
+                refX="9"
+                refY="3"
+                orient="auto"
+                markerUnits="strokeWidth"
+              >
+                <path d="M0,0 L0,6 L9,3 z" fill="#00C9A7" opacity="0.35" />
+              </marker>
+              <marker
+                id="arrowhead-red-past"
+                markerWidth="10"
+                markerHeight="10"
+                refX="9"
+                refY="3"
+                orient="auto"
+                markerUnits="strokeWidth"
+              >
+                <path d="M0,0 L0,6 L9,3 z" fill="#EF4444" opacity="0.35" />
+              </marker>
+
+              {/* Future Arrowheads */}
+              <marker
+                id="arrowhead-teal-future"
+                markerWidth="10"
+                markerHeight="10"
+                refX="9"
+                refY="3"
+                orient="auto"
+                markerUnits="strokeWidth"
+              >
+                <path d="M0,0 L0,6 L9,3 z" fill="#00C9A7" opacity="0.05" />
+              </marker>
+              <marker
+                id="arrowhead-red-future"
+                markerWidth="10"
+                markerHeight="10"
+                refX="9"
+                refY="3"
+                orient="auto"
+                markerUnits="strokeWidth"
+              >
+                <path d="M0,0 L0,6 L9,3 z" fill="#EF4444" opacity="0.05" />
+              </marker>
+
               <filter id="amber-glow" x="-50%" y="-50%" width="200%" height="200%">
                 <feGaussianBlur stdDeviation="4" result="coloredBlur" />
                 <feMerge>
@@ -261,12 +354,21 @@ export default function InvestigationDashboard() {
             </defs>
 
             {arrows.map((arrow, idx) => {
-              const isFuture = playbackStep !== -1 && idx > playbackStep;
+              let status: 'active' | 'past' | 'future' | 'normal' = 'normal';
+              if (playbackStep !== -1) {
+                if (idx < playbackStep) {
+                  status = 'past';
+                } else if (idx === playbackStep) {
+                  status = 'active';
+                } else {
+                  status = 'future';
+                }
+              }
               return (
                 <FlowArrow
                   key={arrow.id}
                   {...arrow}
-                  opacity={isFuture ? 0.05 : undefined}
+                  status={status}
                 />
               );
             })}
@@ -303,16 +405,16 @@ export default function InvestigationDashboard() {
             </div>
           )}
 
-          {/* Bottom-Center: Temporal Playback Controls */}
+          {/* Top-Center: Temporal Playback Controls */}
           {arrows.length > 0 && (
-            <div className="absolute bottom-6 left-1/2 -translate-x-1/2 bg-white border border-gray-200 shadow-md rounded-full px-4 py-2 flex items-center gap-3 z-20">
+            <div className="absolute top-6 left-1/2 -translate-x-1/2 bg-white border border-gray-200 shadow-md rounded-full px-4 py-2 flex items-center gap-3 z-20">
               <button
                 type="button"
                 onClick={() => setIsPlaying(!isPlaying)}
                 className="w-8 h-8 rounded-full bg-[#E31E24] text-white flex items-center justify-center hover:bg-[#E31E24]/90 transition-colors"
                 title={isPlaying ? "Pause Timeline" : "Play Timeline Playback"}
               >
-                {isPlaying ? <Pause className="w-4.5 h-4.5" /> : <Play className="w-4 h-4 translate-x-[1px]" />}
+                {isPlaying ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4 translate-x-[1px]" />}
               </button>
               <button
                 type="button"
@@ -514,9 +616,24 @@ export default function InvestigationDashboard() {
               >
                 View Entity Details
               </button>
-              <button className="w-full px-4 py-3 border border-gray-300 text-gray-900 hover:bg-gray-50 transition-colors rounded text-sm">
-                Assign to Investigator
-              </button>
+              <div className="border border-gray-200 rounded-lg p-3 bg-gray-50/50 space-y-2">
+                <label className="block text-[10px] font-bold text-gray-700 uppercase" style={{ fontFamily: 'Syne' }}>
+                  Assign Case
+                </label>
+                <select
+                  value={(detail as any)?.investigator_id || ''}
+                  disabled={!hasPermission("CASE_ASSIGN")}
+                  onChange={(e) => handleAssignInvestigator(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded text-xs text-gray-900 bg-white outline-none focus:border-[#E31E24] disabled:opacity-60 disabled:cursor-not-allowed"
+                >
+                  <option value="">Unassigned</option>
+                  {users.map((user) => (
+                    <option key={user.id} value={user.id}>
+                      {user.name} ({user.role})
+                    </option>
+                  ))}
+                </select>
+              </div>
             </div>
           </div>
         </div>

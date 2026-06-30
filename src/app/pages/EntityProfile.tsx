@@ -14,6 +14,7 @@ import {
 } from '../../api/client';
 import { useEntityProfile } from '../../hooks/useEntityProfile';
 import { useSelectedCaseId } from '../../hooks/useSelectedCaseId';
+import { usePlatformConfig } from '../../hooks/usePlatformConfig';
 import { formatAmount } from '../../lib/subgraphLayout';
 import { pathWithCase, setStoredCaseId } from '../../lib/selectedCase';
 import EntityNetworkPanel from '../components/EntityNetworkPanel';
@@ -35,6 +36,16 @@ export default function EntityProfile() {
   const { entity, loading, error, refetch } = useEntityProfile(accountId || null);
   const [actionMsg, setActionMsg] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState(false);
+
+  const { config } = usePlatformConfig();
+  const getInvestigatorName = (id?: string | null) => {
+    if (!id || id === 'unassigned') return 'Unassigned';
+    if (id === 'investigator-001') return 'Rohan Kumar';
+    if (id === 'investigator') return 'Investigation Desk';
+    if (id === 'system') return 'System Auto-Triage';
+    const user = config?.users?.find(u => u.id === id);
+    return user ? user.name : id;
+  };
 
   const activeCaseId = entity?.primary_case_id || caseId;
 
@@ -389,7 +400,7 @@ export default function EntityProfile() {
                       </button>
                       <div className="text-gray-700">{item.typology}</div>
                       <div className="text-gray-500">
-                        {item.status}
+                        {item.status} · {getInvestigatorName(item.investigator_id)}
                         {item.created_at ? ` · ${item.created_at.slice(0, 10)}` : ''}
                       </div>
                     </li>

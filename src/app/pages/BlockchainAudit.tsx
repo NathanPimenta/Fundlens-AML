@@ -6,6 +6,7 @@ import { useBlockchain } from '../../hooks/useBlockchain';
 import { useAlertDetail } from '../../hooks/useAlerts';
 import { useSelectedCaseId } from '../../hooks/useSelectedCaseId';
 import { usePersistCaseContext } from '../../hooks/useCaseContext';
+import { useAuth } from '../../context/AuthContext';
 import { pathWithCase } from '../../lib/selectedCase';
 import { useNavigate } from 'react-router';
 
@@ -24,6 +25,7 @@ function integrityBanner(
 
 export default function BlockchainAudit() {
   const navigate = useNavigate();
+  const { hasPermission } = useAuth();
   const [expandedBlock, setExpandedBlock] = useState<number | null>(null);
   const [exporting, setExporting] = useState(false);
   const [approving, setApproving] = useState(false);
@@ -261,8 +263,9 @@ export default function BlockchainAudit() {
           <button
             type="button"
             onClick={handleApprove}
-            disabled={approving || chainEmpty}
-            className="px-4 py-2 bg-[#E31E24] text-white rounded text-sm font-semibold disabled:opacity-50 flex items-center gap-2"
+            disabled={approving || chainEmpty || !hasPermission("BLOCKCHAIN_APPROVE")}
+            title={!hasPermission("BLOCKCHAIN_APPROVE") ? "Only Supervisor roles can record blockchain approvals" : undefined}
+            className="px-4 py-2 bg-[#E31E24] text-white rounded text-sm font-semibold disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
           >
             {approving ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
             Record supervisor approval

@@ -48,6 +48,7 @@ export interface AlertListItem {
   status: string;
   confidence: string;
   risk_level: string;
+  investigator_id?: string | null;
 }
 
 export interface AlertsResponse {
@@ -75,6 +76,7 @@ export interface AlertDetail {
   gnn_score: number;
   subgraph: Subgraph;
   timeline: TimelineEntry[];
+  investigator_id?: string | null;
 }
 
 export interface TimelineEntry {
@@ -123,6 +125,7 @@ export interface InvestigationHistoryItem {
   typology: string;
   status: string;
   created_at?: string;
+  investigator_id?: string | null;
 }
 
 export interface EntityProfile {

@@ -2,12 +2,13 @@
 FundLens — /api/alerts endpoints.
 """
 import logging
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Query, Depends
 from typing import Optional
 
 from backend.blockchain.bootstrap import ensure_case_chain
 from backend.database.demo_data import get_alerts, get_alert_detail, update_alert_status
 from backend.blockchain.evidence_chain import write_block, CASE_OPENED
+from backend.security.rbac import require_permission, get_current_user
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/alerts", tags=["Alerts"])
@@ -18,17 +19,35 @@ async def list_alerts(
     status: Optional[str] = Query(None, description="Filter by status"),
     limit: int = Query(20, ge=1, le=100),
     offset: int = Query(0, ge=0),
+    user: dict = Depends(get_current_user)
 ):
     """Return list of active alerts sorted by risk score descending."""
-    return get_alerts(status=status, limit=limit, offset=offset)
+    return get_alerts(
+        status=status, 
+        limit=limit, 
+        offset=offset, 
+        user_id=user["id"], 
+        role=user["role"]
+    )
 
 
 @router.get("/{case_id}")
-async def alert_detail(case_id: str):
-    """Return full alert detail including subgraph and timeline."""
+async def alert_detail(case_id: str, user: dict = Depends(get_current_user)):
+    """Return full alert detail including subgraph and timeline if authorized."""
     detail = get_alert_detail(case_id)
     if not detail:
         raise HTTPException(status_code=404, detail=f"Case {case_id} not found")
+        
+    # Enforce case assignment visibility
+    if user["role"] != "Supervisor" and detail.get("investigator_id") != user["id"]:
+        raise HTTPException(
+            status_code=403, 
+            detail={
+                "error": "insufficient_permissions",
+                "message": "You are not assigned to this case."
+            }
+        )
+        
     try:
         ensure_case_chain(case_id)
     except Exception as e:
@@ -37,7 +56,11 @@ async def alert_detail(case_id: str):
 
 
 @router.post("/{case_id}/status")
-async def update_status(case_id: str, body: dict):
+async def update_status(
+    case_id: str,
+    body: dict,
+    user: dict = Depends(require_permission("CASE_ASSIGN"))
+):
     """Update alert status and write blockchain block."""
     status = body.get("status", "")
     investigator_id = body.get("investigator_id", "unknown")
