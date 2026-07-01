@@ -17,7 +17,7 @@
     "status": "active",
     "created_at": "2026-03-22T09:14:03",
     "gnn_score": 0.94,
-    "investigator_id": null,
+    "investigator_id": "RK-001",
     "notes": ""
   },
   "accounts": [

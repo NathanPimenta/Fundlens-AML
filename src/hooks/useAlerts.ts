@@ -95,7 +95,10 @@ export function useAlertDetail(caseId: string | null) {
     }
   }, [caseId]);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    setDetail(null);
+    load();
+  }, [load]);
 
   return { detail, loading, error, refetch: load };
 }

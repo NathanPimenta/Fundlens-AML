@@ -199,51 +199,51 @@ export default function InvestigationDashboard() {
   return (
     <div className="min-h-screen bg-white">
       {/* Top Bar */}
-      <div className="h-[64px] bg-white border-b border-gray-200 flex items-center justify-between px-8">
-        <div className="flex items-center gap-6">
+      <div className="h-[64px] bg-white border-b border-gray-200 flex items-center justify-between px-4 flex-nowrap overflow-hidden">
+        <div className="flex items-center gap-4 shrink-0">
           <div>
-            <h1 className="text-gray-900 text-lg font-bold" style={{ fontFamily: 'Syne' }}>
+            <h1 className="text-gray-900 text-sm md:text-base font-bold whitespace-nowrap" style={{ fontFamily: 'Syne' }}>
               FundLens AML Platform
             </h1>
-            <p className="text-gray-600 text-xs">Union Bank of India · Investigation Dashboard</p>
+            <p className="text-gray-600 text-[10px] whitespace-nowrap">Union Bank of India · Investigation Dashboard</p>
           </div>
         </div>
-        <div className="flex items-center gap-6">
-          <div className="hidden xl:flex items-center gap-2 px-3 py-1.5 rounded-full border border-slate-200 bg-slate-50">
+        <div className="flex items-center gap-3 shrink-0">
+          <div className="hidden xl:flex items-center gap-2 px-3 py-1.5 rounded-full border border-slate-200 bg-slate-50 shrink-0">
             <div className={`w-2 h-2 rounded-full ${isStreaming ? 'bg-emerald-500 animate-pulse' : 'bg-slate-400'}`} />
-            <span className="text-slate-700 text-[10px] font-bold uppercase tracking-[0.2em]" style={{ fontFamily: 'Syne' }}>
+            <span className="text-slate-700 text-[10px] font-bold uppercase tracking-[0.2em] whitespace-nowrap" style={{ fontFamily: 'Syne' }}>
               {isStreaming ? 'Live transaction stream active' : 'Stream idle'}
             </span>
           </div>
           <button
             onClick={isStreaming ? stopStream : startStream}
-            className={`px-3 py-1 border rounded-xl text-[10px] font-bold uppercase tracking-wider transition-all flex items-center gap-1.5 cursor-pointer ${isStreaming ? 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100/80' : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100/80'}`}
+            className={`px-3 py-1 border rounded-xl text-[10px] font-bold uppercase tracking-wider transition-all flex items-center gap-1.5 cursor-pointer shrink-0 whitespace-nowrap ${isStreaming ? 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100/80' : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100/80'}`}
             style={{ fontFamily: 'Syne' }}
           >
             <span className={`w-1.5 h-1.5 rounded-full ${isStreaming ? 'bg-emerald-500 animate-ping' : 'bg-slate-400'}`} />
             {isStreaming ? 'Stop Live Transaction Stream' : 'Start Live Transaction Stream'}
           </button>
           {latestTransaction && (
-            <div className="hidden lg:flex items-center gap-2 px-3 py-1.5 rounded-full border border-gray-200 bg-white shadow-sm">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-gray-500" style={{ fontFamily: 'Syne' }}>
+            <div className="hidden lg:flex items-center gap-2 px-3 py-1.5 rounded-full border border-gray-200 bg-white shadow-sm shrink-0">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-gray-500 whitespace-nowrap" style={{ fontFamily: 'Syne' }}>
                 Live tx
               </span>
-              <span className="text-[10px] text-gray-700" style={{ fontFamily: 'DM Mono' }}>
+              <span className="text-[10px] text-gray-700 whitespace-nowrap" style={{ fontFamily: 'DM Mono' }}>
                 {latestTransaction.sender} → {latestTransaction.receiver} · {formatAmount(latestTransaction.amount)}
               </span>
             </div>
           )}
           <button
             onClick={handleSimulateBlock}
-            className="px-3 py-1 bg-red-50 text-[#E31E24] hover:bg-red-100/80 border border-red-200 rounded-xl text-[10px] font-bold uppercase tracking-wider transition-all flex items-center gap-1.5 cursor-pointer"
+            className="px-3 py-1 bg-red-50 text-[#E31E24] hover:bg-red-100/80 border border-red-200 rounded-xl text-[10px] font-bold uppercase tracking-wider transition-all flex items-center gap-1.5 cursor-pointer shrink-0 whitespace-nowrap"
             style={{ fontFamily: 'Syne' }}
           >
             <span className="w-1.5 h-1.5 rounded-full bg-[#E31E24] animate-ping" />
             Simulate Live Block
           </button>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 shrink-0">
             <div className="w-2 h-2 rounded-full bg-green-500" />
-            <span className="text-gray-600 text-xs">System Active</span>
+            <span className="text-gray-600 text-xs whitespace-nowrap">System Active</span>
           </div>
           <UserProfileBadge />
         </div>

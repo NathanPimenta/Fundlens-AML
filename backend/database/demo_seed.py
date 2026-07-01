@@ -980,7 +980,7 @@ CASE_META = {
         "status":              "active",
         "created_at":          "2026-03-22T09:14:03",
         "gnn_score":           0.94,
-        "investigator_id":     None,
+        "investigator_id":     "RK-001",
         "notes":               "",
     },
     "CASE-2848": {
@@ -1001,7 +1001,7 @@ CASE_META = {
         "status":              "active",
         "created_at":          "2026-03-22T08:00:00",
         "gnn_score":           0.87,
-        "investigator_id":     None,
+        "investigator_id":     "SK-004",
         "notes":               "",
     },
     "CASE-2849": {
@@ -1022,7 +1022,7 @@ CASE_META = {
         "status":              "active",
         "created_at":          "2026-03-22T08:10:00",
         "gnn_score":           0.91,
-        "investigator_id":     None,
+        "investigator_id":     "PS-002",
         "notes":               "",
     },
     "CASE-2850": {
@@ -1043,7 +1043,7 @@ CASE_META = {
         "status":              "active",
         "created_at":          "2026-03-22T09:30:00",
         "gnn_score":           0.89,
-        "investigator_id":     None,
+        "investigator_id":     "RK-001",
         "notes":               "",
     },
     "CASE-2851": {
@@ -1064,7 +1064,7 @@ CASE_META = {
         "status":              "active",
         "created_at":          "2026-03-22T10:00:00",
         "gnn_score":           0.92,
-        "investigator_id":     None,
+        "investigator_id":     "PS-002",
         "notes":               "",
     },
 }
