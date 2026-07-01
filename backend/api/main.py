@@ -2,6 +2,8 @@
 FundLens — FastAPI application entry point.
 Run with: uvicorn backend.api.main:app --reload --port 8000
 """
+import asyncio
+import random
 import logging
 import os
 from contextlib import asynccontextmanager
@@ -46,6 +48,109 @@ class ConnectionManager:
 
 
 manager = ConnectionManager()
+_transaction_stream_task: asyncio.Task | None = None
+
+
+def _ensure_transaction_stream_task() -> None:
+    global _transaction_stream_task
+    if _transaction_stream_task and not _transaction_stream_task.done():
+        return
+    _transaction_stream_task = asyncio.create_task(_transaction_stream_loop())
+
+
+def _simulate_transaction_event() -> tuple[dict, dict | None]:
+    beneficiary_trust_scores = {
+        "ACC-0089": 12,
+        "ACC-8455": 25,
+        "ACC-0112": 45,
+    }
+    sender = random.choice(["ACC-0041", "ACC-0177", "ACC-0228", "ACC-0314", "ACC-0442"])
+    receiver = random.choice(["ACC-0089", "ACC-8455", "ACC-0112", "ACC-2033", "ACC-5540"])
+    amount = random.choice([12500, 42000, 78000, 150000, 360000, 750000, 1200000])
+    channel = random.choice(["IMPS", "NEFT", "RTGS", "UPI", "wire"])
+    risk_score = 15.0
+    trust_score = beneficiary_trust_scores.get(receiver, 85)
+
+    if trust_score < 30:
+        risk_score += 55.0
+    elif trust_score < 50:
+        risk_score += 30.0
+
+    if amount > 500000:
+        risk_score += 25.0
+
+    if receiver == "ACC-0089":
+        risk_score = 94.0
+    elif risk_score < 70.0 and amount >= 150000:
+        risk_score += 10.0
+
+    if risk_score >= 90.0:
+        status = "DECLINED"
+    elif risk_score >= 70.0:
+        status = "PENDING_VERIFICATION"
+    else:
+        status = "APPROVED"
+
+    transaction = {
+        "type": "transaction_stream",
+        "data": {
+            "transaction_id": f"TXN-LIVE-{random.randint(100000, 999999)}",
+            "sender": sender,
+            "receiver": receiver,
+            "amount": amount,
+            "channel": channel,
+            "risk_score": round(risk_score, 1),
+            "status": status,
+            "created_at": datetime.utcnow().isoformat(),
+        },
+    }
+
+    alert: dict | None = None
+    if risk_score >= 90.0:
+        case_id = f"CASE-LIVE-{random.randint(3000, 9999)}"
+        alert = {
+            "case_id": case_id,
+            "typology": "Real-time Prevention Block",
+            "risk_score": round(risk_score, 1),
+            "total_amount": amount,
+            "accounts_count": 2,
+            "hops": 1,
+            "duration": "0m",
+            "channel": channel,
+            "created_at": "Just now",
+            "status": "temporarily_blocked",
+            "confidence": "94%",
+            "risk_level": "critical",
+            "investigator_id": "",
+            "sender_account": sender,
+            "receiver_account": receiver,
+        }
+        try:
+            from backend.database.demo_data import insert_prevention_case
+
+            insert_prevention_case(case_id, sender, receiver, amount, channel, risk_score)
+        except Exception as exc:
+            logger.warning("Failed to persist live prevention case: %s", exc)
+        transaction["data"]["case_id"] = case_id
+
+    return transaction, alert
+
+
+async def _transaction_stream_loop() -> None:
+    while True:
+        if not manager.active:
+            await asyncio.sleep(1.5)
+            continue
+
+        transaction_event, alert = _simulate_transaction_event()
+        await manager.broadcast(transaction_event)
+        if alert is not None:
+            await manager.broadcast({"type": "new_alert", "data": alert})
+        await asyncio.sleep(3)
+
+
+async def _register_websocket(websocket: WebSocket) -> None:
+    await manager.connect(websocket)
 
 
 def _cors_origins() -> list[str]:
@@ -130,6 +235,7 @@ from backend.api.routes.mobile import router as mobile_router
 from backend.api.routes.query import router as query_router
 from backend.api.routes.str_report import router as str_router
 from backend.api.routes.auth import router as auth_router
+from backend.api.routes.transactions import router as transactions_router
 
 app.include_router(alerts_router)
 app.include_router(cases_router)
@@ -142,6 +248,7 @@ app.include_router(query_router)
 app.include_router(config_router)
 app.include_router(mobile_router)
 app.include_router(auth_router)
+app.include_router(transactions_router)
 
 
 @app.get("/api/health")
@@ -193,11 +300,27 @@ async def health():
 
 @app.websocket("/ws/alerts")
 async def websocket_alerts(websocket: WebSocket):
-    await manager.connect(websocket)
+    await _register_websocket(websocket)
     try:
         while True:
             await websocket.receive_text()
     except WebSocketDisconnect:
+        manager.disconnect(websocket)
+    except Exception:
+        manager.disconnect(websocket)
+
+
+@app.websocket("/api/transactions/stream")
+async def websocket_transaction_stream(websocket: WebSocket):
+    await _register_websocket(websocket)
+    _ensure_transaction_stream_task()
+    try:
+        await websocket.send_json({"type": "stream_ready", "data": {"channel": "transaction_stream"}})
+        while True:
+            await websocket.receive_text()
+    except WebSocketDisconnect:
+        manager.disconnect(websocket)
+    except Exception:
         manager.disconnect(websocket)
 
 

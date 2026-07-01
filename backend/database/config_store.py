@@ -188,7 +188,10 @@ def update_fiu_settings(updates: dict, actor_id: str = "admin") -> dict:
 
 
 def get_users() -> list[dict]:
-    return _get_json("users", DEFAULT_USERS)
+    users = _get_json("users", DEFAULT_USERS)
+    if not users:
+        return DEFAULT_USERS
+    return users
 
 
 def update_users(users: list[dict], actor_id: str = "admin") -> list[dict]:

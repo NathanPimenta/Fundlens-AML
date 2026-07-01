@@ -1009,3 +1009,70 @@ def update_alert_status(case_id: str, status: str, investigator_id: str, notes: 
         )
         con.commit()
         return cur.rowcount > 0
+
+def insert_prevention_case(case_id: str, sender: str, receiver: str, amount: float, channel: str, risk_score: float) -> bool:
+    import uuid
+    from datetime import datetime, timezone
+    ts_str = datetime.now(timezone.utc).isoformat()
+    
+    # 1. Insert case
+    sql_case_pg = """
+        INSERT INTO cases (case_id, typology, typology_code, fatf_reference, pmla_section, risk_score, confidence, risk_level, total_amount, accounts_count, hops, duration_minutes, duration_display, channel, status, created_at, gnn_score, investigator_id, notes)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+    """
+    sql_case_lite = """
+        INSERT INTO cases (case_id, typology, typology_code, fatf_reference, pmla_section, risk_score, confidence, risk_level, total_amount, accounts_count, hops, duration_minutes, duration_display, channel, status, created_at, gnn_score, investigator_id, notes)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    """
+    params_case = (
+        case_id,
+        "Real-time Prevention Block",
+        "PREV-BLOCK",
+        "FATF Typology 12",
+        "PMLA Section 16",
+        risk_score,
+        "94%",
+        "critical",
+        amount,
+        2,
+        1,
+        0,
+        "0m",
+        channel,
+        "temporarily_blocked",
+        ts_str,
+        risk_score,
+        "",
+        "Transaction blocked at gateway."
+    )
+    
+    success1 = _execute_db(sql_case_pg, sql_case_lite, params_case)
+    if not success1:
+        return False
+        
+    # 2. Insert transaction
+    tx_id = f"TXN-{uuid.uuid4().hex[:8].upper()}"
+    sql_tx_pg = """
+        INSERT INTO transactions (transaction_id, sender, receiver, amount, currency, timestamp, channel, branch_code, reference_number, is_fraud, typology, case_id)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+    """
+    sql_tx_lite = """
+        INSERT INTO transactions (transaction_id, sender, receiver, amount, currency, timestamp, channel, branch_code, reference_number, is_fraud, typology, case_id)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    """
+    params_tx = (
+        tx_id,
+        sender,
+        receiver,
+        amount,
+        "INR",
+        ts_str,
+        channel,
+        "GATEWAY",
+        f"REF-{uuid.uuid4().hex[:6].upper()}",
+        True,
+        "Real-time Prevention Block",
+        case_id
+    )
+    
+    return _execute_db(sql_tx_pg, sql_tx_lite, params_tx)

@@ -7,6 +7,7 @@ import NodeTooltip from '../components/NodeTooltip';
 import UserProfileBadge from '../components/UserProfileBadge';
 import { useAuth } from '../../context/AuthContext';
 import { useAlerts, useAlertDetail } from '../../hooks/useAlerts';
+import { useLiveSimulator } from '../../hooks/useLiveSimulator';
 import { usePersistCaseContext } from '../../hooks/useCaseContext';
 import { usePlatformConfig } from '../../hooks/usePlatformConfig';
 import { updateAlertStatus } from '../../api/client';
@@ -28,7 +29,8 @@ export default function InvestigationDashboard() {
   const [playbackStep, setPlaybackStep] = useState<number>(-1);
   const [isPlaying, setIsPlaying] = useState<boolean>(false);
 
-  const { hasPermission } = useAuth();
+  const { user, hasPermission } = useAuth();
+  const { isStreaming, latestTransaction, latestRiskScore, startStream, stopStream } = useLiveSimulator();
 
   // Fetch alerts from API
   const { alerts, loading: alertsLoading, refetch: refetchAlerts } = useAlerts();
@@ -130,6 +132,68 @@ export default function InvestigationDashboard() {
     return offsets[idx] || `${idx * 5 + 2}m ago`;
   };
 
+  const handleUnblockAccount = async () => {
+    const sender = (detail as any)?.sender_account || 'ACC-0089';
+    const reason = prompt(`Enter override justification to release the prevention lock on account ${sender}:`, 'Verified legitimate customer activity');
+    if (!reason) return;
+    
+    try {
+      const res = await fetch(`/api/transactions/unblock/${encodeURIComponent(sender)}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-User-Id': user?.id || ''
+        },
+        body: JSON.stringify({ reason })
+      });
+      const data = await res.json();
+      alert(data.message);
+      
+      if (selectedAlert) {
+        await updateAlertStatus(selectedAlert, 'resolved', (detail as any)?.investigator_id || '', `Override unblock: ${reason}`);
+        await Promise.all([refetchAlerts(), refetchDetail()]);
+      }
+    } catch (e) {
+      alert((e as Error).message);
+    }
+  };
+
+  const handlePermanentFreeze = async () => {
+    const confirmFreeze = window.confirm("Are you sure you want to permanently freeze this account and seal the evidence chain on the ledger?");
+    if (!confirmFreeze) return;
+    
+    try {
+      if (selectedAlert) {
+        await updateAlertStatus(selectedAlert, 'permanently_frozen', (detail as any)?.investigator_id || '', 'Account frozen permanently, evidence sealed on blockchain.');
+        alert("Account status set to: PERMANENTLY_FROZEN. Evidence chain sealed on Hyperledger. Navigating to STR filer...");
+        navigate(`/str-generation?case=${encodeURIComponent(selectedAlert)}`);
+      }
+    } catch (e) {
+      alert((e as Error).message);
+    }
+  };
+
+  const handleSimulateBlock = async () => {
+    try {
+      const res = await fetch('/api/transactions/authorize', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          sender: 'ACC-0041',
+          receiver: 'ACC-0089',
+          amount: 750000,
+          channel: 'IMPS'
+        })
+      });
+      const data = await res.json();
+      alert(`Payment Gateway Authorization Interception:\n\nStatus: ${data.status}\nRisk Score: ${data.risk_score}%\nMessage: ${data.message}`);
+    } catch (e) {
+      alert((e as Error).message);
+    }
+  };
+
   console.log("InvestigationDashboard Render playbackStep:", playbackStep, "isPlaying:", isPlaying, "arrows length:", arrows.length);
 
   return (
@@ -145,6 +209,38 @@ export default function InvestigationDashboard() {
           </div>
         </div>
         <div className="flex items-center gap-6">
+          <div className="hidden xl:flex items-center gap-2 px-3 py-1.5 rounded-full border border-slate-200 bg-slate-50">
+            <div className={`w-2 h-2 rounded-full ${isStreaming ? 'bg-emerald-500 animate-pulse' : 'bg-slate-400'}`} />
+            <span className="text-slate-700 text-[10px] font-bold uppercase tracking-[0.2em]" style={{ fontFamily: 'Syne' }}>
+              {isStreaming ? 'Live transaction stream active' : 'Stream idle'}
+            </span>
+          </div>
+          <button
+            onClick={isStreaming ? stopStream : startStream}
+            className={`px-3 py-1 border rounded-xl text-[10px] font-bold uppercase tracking-wider transition-all flex items-center gap-1.5 cursor-pointer ${isStreaming ? 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100/80' : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100/80'}`}
+            style={{ fontFamily: 'Syne' }}
+          >
+            <span className={`w-1.5 h-1.5 rounded-full ${isStreaming ? 'bg-emerald-500 animate-ping' : 'bg-slate-400'}`} />
+            {isStreaming ? 'Stop Live Transaction Stream' : 'Start Live Transaction Stream'}
+          </button>
+          {latestTransaction && (
+            <div className="hidden lg:flex items-center gap-2 px-3 py-1.5 rounded-full border border-gray-200 bg-white shadow-sm">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-gray-500" style={{ fontFamily: 'Syne' }}>
+                Live tx
+              </span>
+              <span className="text-[10px] text-gray-700" style={{ fontFamily: 'DM Mono' }}>
+                {latestTransaction.sender} → {latestTransaction.receiver} · {formatAmount(latestTransaction.amount)}
+              </span>
+            </div>
+          )}
+          <button
+            onClick={handleSimulateBlock}
+            className="px-3 py-1 bg-red-50 text-[#E31E24] hover:bg-red-100/80 border border-red-200 rounded-xl text-[10px] font-bold uppercase tracking-wider transition-all flex items-center gap-1.5 cursor-pointer"
+            style={{ fontFamily: 'Syne' }}
+          >
+            <span className="w-1.5 h-1.5 rounded-full bg-[#E31E24] animate-ping" />
+            Simulate Live Block
+          </button>
           <div className="flex items-center gap-2">
             <div className="w-2 h-2 rounded-full bg-green-500" />
             <span className="text-gray-600 text-xs">System Active</span>
@@ -431,6 +527,14 @@ export default function InvestigationDashboard() {
               <span className="text-[11px] text-gray-700 font-bold" style={{ fontFamily: 'DM Mono' }}>
                 {playbackStep === -1 ? `Full Flow (${arrows.length} steps)` : `Step ${playbackStep + 1} / ${arrows.length}`}
               </span>
+              {latestRiskScore !== null && (
+                <>
+                  <div className="h-4 w-[1px] bg-gray-200" />
+                  <span className="text-[11px] text-[#E31E24] font-bold" style={{ fontFamily: 'DM Mono' }}>
+                    Live risk {Math.round(latestRiskScore)}%
+                  </span>
+                </>
+              )}
             </div>
           )}
 
@@ -616,6 +720,26 @@ export default function InvestigationDashboard() {
               >
                 View Entity Details
               </button>
+
+              {/* Remediation & Prevention Actions */}
+              <div className="flex gap-2 py-2 border-t border-b border-gray-100">
+                <button
+                  onClick={handlePermanentFreeze}
+                  disabled={!hasPermission("CASE_ASSIGN")}
+                  className="flex-1 px-3 py-2 bg-slate-900 hover:bg-slate-850 text-white rounded text-xs font-bold transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                  style={{ fontFamily: 'Syne' }}
+                >
+                    Permanently Freeze & File STR
+                </button>
+                <button
+                  onClick={handleUnblockAccount}
+                  disabled={!hasPermission("CASE_ASSIGN")}
+                  className="flex-1 px-3 py-2 border border-green-600 text-green-600 hover:bg-green-50 rounded text-xs font-bold transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                  style={{ fontFamily: 'Syne' }}
+                >
+                    Override & Unblock Account
+                </button>
+              </div>
               <div className="border border-gray-200 rounded-lg p-3 bg-gray-50/50 space-y-2">
                 <label className="block text-[10px] font-bold text-gray-700 uppercase" style={{ fontFamily: 'Syne' }}>
                   Assign Case
